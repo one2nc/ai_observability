@@ -1,0 +1,21 @@
+[project]
+name = "ai-observability"
+version = "0.1.0"
+description = "Benchmarking AI observability tools."
+requires-python = ">=3.11"
+
+[tool.basedpyright]
+typeCheckingMode = "basic"
+reportMissingTypeStubs = "none"
+reportUnknownMemberType = "none"
+reportUnknownArgumentType = "none"
+reportUnknownParameterType = "none"
+reportUnknownLambdaType = "none"
+reportUnknownVariableType = "none"
+reportMissingImports = "none"
+reportUntypedFunctionDecorator = "none"
+reportAssignmentType = "none"
+reportArgumentType = "none"
+
+[tool.ruff]
+line-length = 120

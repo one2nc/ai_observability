@@ -1,0 +1,7 @@
+fastapi>=0.115
+uvicorn>=0.30
+openai>=1.40.0
+psycopg2-binary>=2.9.9
+pgvector>=0.3.6
+python-multipart>=0.0.9
+python-dotenv>=1.0.0
