@@ -1,0 +1,29 @@
+Kubernetes Architecture Overview
+
+Kubernetes is a portable, extensible, open-source platform for managing containerized workloads and services that facilitates both declarative configuration and automation.
+
+Control Plane Components
+
+The control plane's components make global decisions about the cluster, as well as detecting and responding to cluster events.
+
+kube-apiserver: The API server is the front end for the Kubernetes control plane. It exposes the Kubernetes API and is designed to scale horizontally.
+
+etcd: A consistent and highly available key-value store used as Kubernetes' backing store for all cluster data.
+
+kube-scheduler: Watches for newly created Pods with no assigned node and selects a node for them to run on. Factors taken into account include individual and collective resource requirements, hardware/software/policy constraints, affinity and anti-affinity specifications, data locality, inter-workload interference, and deadlines.
+
+kube-controller-manager: Runs controller processes. Each controller is a separate process, but to reduce complexity, they are all compiled into a single binary and run in a single process. Some of these controllers include the Node controller, Job controller, EndpointSlice controller, and ServiceAccount controller.
+
+Node Components
+
+Node components run on every node, maintaining running pods and providing the Kubernetes runtime environment.
+
+kubelet: An agent that runs on each node in the cluster. It makes sure that containers are running in a Pod. The kubelet takes a set of PodSpecs and ensures that the containers described in those PodSpecs are running and healthy.
+
+kube-proxy: A network proxy that runs on each node in your cluster, implementing part of the Kubernetes Service concept. It maintains network rules on nodes that allow network communication to your Pods from network sessions inside or outside of your cluster.
+
+Container Runtime: The software responsible for running containers. Kubernetes supports container runtimes such as containerd, CRI-O, and any implementation of the Kubernetes CRI (Container Runtime Interface).
+
+Networking
+
+Every Pod in a cluster gets its own unique cluster-wide IP address. This means you do not need to explicitly create links between Pods and you almost never need to deal with mapping container ports to host ports. Pods can communicate with all other Pods on any other node without NAT.

@@ -1,0 +1,167 @@
+{
+  "description": "Token usage, LLM latency, and generation metrics from OpenLLMetry auto-instrumentation",
+  "layout": [
+    {
+      "h": 7,
+      "i": "panel1",
+      "moved": false,
+      "static": false,
+      "w": 6,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "h": 7,
+      "i": "panel2",
+      "moved": false,
+      "static": false,
+      "w": 6,
+      "x": 6,
+      "y": 0
+    },
+    {
+      "h": 5,
+      "i": "panel3",
+      "moved": false,
+      "static": false,
+      "w": 6,
+      "x": 0,
+      "y": 7
+    },
+    {
+      "h": 5,
+      "i": "panel4",
+      "moved": false,
+      "static": false,
+      "w": 6,
+      "x": 6,
+      "y": 7
+    }
+  ],
+  "panelMap": {},
+  "tags": [
+    "ai-observability",
+    "openllmetry"
+  ],
+  "title": "GenAI Metrics - OpenLLMetry",
+  "version": "v5",
+  "widgets": [
+    {
+      "id": "panel1",
+      "panelTypes": "graph",
+      "query": {
+        "builder": {
+          "queryData": [
+            {
+              "aggregations": [
+                {
+                  "metricName": "gen_ai.client.token.usage.sum",
+                  "spaceAggregation": "sum",
+                  "temporality": "Cumulative",
+                  "timeAggregation": "rate"
+                }
+              ],
+              "dataSource": "metrics",
+              "disabled": false,
+              "expression": "A",
+              "having": {
+                "expression": ""
+              },
+              "queryName": "A"
+            }
+          ]
+        },
+        "queryType": "builder"
+      },
+      "title": "Token Usage (sum)"
+    },
+    {
+      "id": "panel2",
+      "panelTypes": "graph",
+      "query": {
+        "builder": {
+          "queryData": [
+            {
+              "aggregations": [
+                {
+                  "metricName": "gen_ai.client.operation.duration.sum",
+                  "spaceAggregation": "avg",
+                  "temporality": "Cumulative",
+                  "timeAggregation": "rate"
+                }
+              ],
+              "dataSource": "metrics",
+              "disabled": false,
+              "expression": "A",
+              "having": {
+                "expression": ""
+              },
+              "queryName": "A"
+            }
+          ]
+        },
+        "queryType": "builder"
+      },
+      "title": "LLM Operation Duration (avg ms)"
+    },
+    {
+      "id": "panel3",
+      "panelTypes": "value",
+      "query": {
+        "builder": {
+          "queryData": [
+            {
+              "aggregations": [
+                {
+                  "metricName": "gen_ai.client.generation.choices",
+                  "spaceAggregation": "sum",
+                  "temporality": "Cumulative",
+                  "timeAggregation": "rate"
+                }
+              ],
+              "dataSource": "metrics",
+              "disabled": false,
+              "expression": "A",
+              "having": {
+                "expression": ""
+              },
+              "queryName": "A"
+            }
+          ]
+        },
+        "queryType": "builder"
+      },
+      "title": "Generation Choices"
+    },
+    {
+      "id": "panel4",
+      "panelTypes": "value",
+      "query": {
+        "builder": {
+          "queryData": [
+            {
+              "aggregations": [
+                {
+                  "metricName": "llm.openai.embeddings.vector_size",
+                  "spaceAggregation": "sum",
+                  "temporality": "Cumulative",
+                  "timeAggregation": "rate"
+                }
+              ],
+              "dataSource": "metrics",
+              "disabled": false,
+              "expression": "A",
+              "having": {
+                "expression": ""
+              },
+              "queryName": "A"
+            }
+          ]
+        },
+        "queryType": "builder"
+      },
+      "title": "Embedding Vector Size"
+    }
+  ],
+  "uuid": "019e8991-afb2-708b-a92d-1bb696a78ea2"
+}
