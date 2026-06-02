@@ -1,0 +1,15 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-obs-01-otel
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8001:8001"
+    environment:
+      PORT: "8001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on: []

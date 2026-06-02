@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: ai-obs-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: rag
+      POSTGRES_DB: rag
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rag"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - signoz-net
+
+  # Override SigNoz UI port to avoid conflict with Bifrost on 8080
+  signoz:
+    ports:
+      - "3301:8080"
+
+volumes:
+  pgdata:
+
+networks:
+  signoz-net:

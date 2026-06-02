@@ -1,0 +1,19 @@
+[project]
+name = "ai-observability-01-otel"
+version = "0.1.0"
+description = "RAG app instrumented with vanilla OpenTelemetry."
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn>=0.30",
+  "openai>=1.40.0",
+  "psycopg2-binary>=2.9.9",
+  "pgvector>=0.3.6",
+  "python-multipart>=0.0.9",
+  "python-dotenv>=1.0.0",
+  "opentelemetry-api>=1.25.0",
+  "opentelemetry-sdk>=1.25.0",
+  "opentelemetry-exporter-otlp-proto-http>=1.25.0",
+  "opentelemetry-instrumentation-fastapi>=0.46b0",
+  "opentelemetry-instrumentation-logging>=0.46b0",
+]

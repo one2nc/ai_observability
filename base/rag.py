@@ -9,9 +9,21 @@ from pgvector.psycopg2 import register_vector
 
 log = logging.getLogger(__name__)
 
-EMBED_MODEL = os.environ.get("EMBED_MODEL", "openai/text-embedding-3-small")
-EMBED_DIM = int(os.environ.get("EMBED_DIM", "1536"))
-CHAT_MODEL = os.environ.get("CHAT_MODEL", "claude-sonnet-4")
+REQUIRED_ENV = ["EMBED_API_KEY", "EMBED_BASE_URL", "EMBED_MODEL", "EMBED_DIM", "CHAT_API_KEY", "CHAT_BASE_URL", "CHAT_MODEL", "DATABASE_URL"]
+
+
+def _check_env() -> None:
+    """Fail fast if required env vars are missing."""
+    missing = [k for k in REQUIRED_ENV if not os.environ.get(k)]
+    if missing:
+        raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}")
+
+
+_check_env()
+
+EMBED_MODEL = os.environ["EMBED_MODEL"]
+EMBED_DIM = int(os.environ["EMBED_DIM"])
+CHAT_MODEL = os.environ["CHAT_MODEL"]
 CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", "500"))
 CHUNK_OVERLAP = int(os.environ.get("CHUNK_OVERLAP", "50"))
 TOP_K = int(os.environ.get("TOP_K", "5"))
@@ -21,7 +33,7 @@ def _embed_client() -> openai.OpenAI:
     """Client for embeddings."""
     return openai.OpenAI(
         api_key=os.environ["EMBED_API_KEY"],
-        base_url=os.environ.get("EMBED_BASE_URL", "https://openrouter.ai/api/v1"),
+        base_url=os.environ["EMBED_BASE_URL"],
     )
 
 
@@ -29,7 +41,7 @@ def _chat_client() -> openai.OpenAI:
     """Client for chat completions."""
     return openai.OpenAI(
         api_key=os.environ["CHAT_API_KEY"],
-        base_url=os.environ.get("CHAT_BASE_URL", "http://127.0.0.1:8000/v1"),
+        base_url=os.environ["CHAT_BASE_URL"],
     )
 
 

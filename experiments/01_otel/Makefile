@@ -1,15 +1,15 @@
-.PHONY: setup infra app ingest ask health
+.PHONY: setup infra app app-down ingest ask health
 
 PORT ?= 8001
 
-setup:
-	uv sync
-
 infra:
-	$(MAKE) -C ../infra up
+	$(MAKE) -C ../../infra up
 
 app:
-	uv run python app.py
+	docker compose up --build
+
+app-down:
+	docker compose down
 
 ingest:
 	curl -s -X POST http://localhost:$(PORT)/ingest -F "file=@sample_data/kubernetes.txt" | python3 -m json.tool
@@ -19,3 +19,6 @@ ask:
 
 health:
 	curl -s http://localhost:$(PORT)/health | python3 -m json.tool
+
+logs:
+	docker compose logs -f app

@@ -67,3 +67,7 @@ coverage.xml
 # Data / output
 *.db
 *.sqlite3
+
+# SigNoz (cloned at runtime)
+infra/signoz/
+infra/.vendor/
