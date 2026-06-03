@@ -2,6 +2,26 @@
 
 Instruments the RAG app with OpenLLMetry (Traceloop SDK) which auto-instruments OpenAI SDK calls.
 
+## Flow
+
+```mermaid
+graph LR
+    User -->|POST /ask| FastAPI
+    FastAPI --> RAG
+    RAG --> OpenAI[OpenAI Embeddings]
+    RAG --> PG[pgvector]
+    RAG --> LLM[Chat Completions]
+
+    Traceloop[Traceloop SDK] -.->|auto-patches| OpenAI
+    Traceloop -.->|auto-patches| LLM
+    FastAPI -->|OTLP traces + metrics| Collector[SigNoz OTel Collector]
+    FastAPI -->|OTLP logs| Collector
+    Collector --> ClickHouse
+    ClickHouse --> SigNoz[SigNoz UI]
+
+    style Traceloop stroke-dasharray: 5 5
+```
+
 ## What this captures vs 01_otel
 
 | What | 01_otel | 02_openllmetry |

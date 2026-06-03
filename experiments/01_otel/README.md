@@ -2,6 +2,20 @@
 
 Instruments the RAG app with plain OpenTelemetry (no LLM-specific tooling).
 
+## Flow
+
+```mermaid
+graph LR
+    User -->|POST /ask| FastAPI
+    FastAPI -->|span: rag.ask| RAG
+    RAG -->|span: rag.embed| OpenAI[OpenAI Embeddings]
+    RAG -->|span: rag.vector_search| PG[pgvector]
+    RAG -->|span: rag.generate| LLM[Chat Completions]
+    FastAPI -->|OTLP| Collector[SigNoz OTel Collector]
+    Collector --> ClickHouse
+    ClickHouse --> SigNoz[SigNoz UI]
+```
+
 ## What this captures
 
 | What | How | Visible in SigNoz? |
