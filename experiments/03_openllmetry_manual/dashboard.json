@@ -1,97 +1,88 @@
 {
     "status": "success",
     "data": {
-        "createdAt": "2026-06-03T10:15:50.939262Z",
-        "updatedAt": "2026-06-03T10:16:36.48059Z",
+        "createdAt": "2026-06-03T10:17:25.035572Z",
+        "updatedAt": "2026-06-03T10:17:25.035572Z",
         "createdBy": "signoz-mcp-01@signozserviceaccount.com",
-        "updatedBy": "saurabh.hirani@gmail.com",
-        "id": "019e8cfb-779f-7230-8b1d-a6b6e0d3cdec",
+        "updatedBy": "signoz-mcp-01@signozserviceaccount.com",
+        "id": "019e8cfc-e733-719f-b4f3-3d74e5f8de31",
         "data": {
-            "description": "Grouped by source: OpenLLMetry (LLM-specific) vs OTel FastAPI (HTTP-level)",
+            "description": "Grouped by source: OpenLLMetry (LLM), OTel FastAPI (HTTP), Manual (RAG pipeline)",
             "layout": [
                 {
-                    "h": 6,
+                    "h": 2,
                     "i": "p1",
-                    "moved": false,
-                    "static": false,
                     "w": 4,
                     "x": 0,
                     "y": 0
                 },
                 {
-                    "h": 6,
+                    "h": 2,
                     "i": "p2",
-                    "moved": false,
-                    "static": false,
                     "w": 4,
                     "x": 4,
                     "y": 0
                 },
                 {
-                    "h": 6,
+                    "h": 2,
                     "i": "p3",
-                    "moved": false,
-                    "static": false,
                     "w": 4,
                     "x": 8,
                     "y": 0
                 },
                 {
-                    "h": 6,
+                    "h": 2,
                     "i": "p4",
-                    "moved": false,
-                    "static": false,
                     "w": 4,
                     "x": 0,
-                    "y": 6
+                    "y": 2
                 },
                 {
-                    "h": 6,
+                    "h": 2,
                     "i": "p5",
-                    "moved": false,
-                    "static": false,
                     "w": 4,
                     "x": 4,
-                    "y": 6
+                    "y": 2
                 },
                 {
-                    "h": 6,
+                    "h": 2,
                     "i": "p6",
-                    "moved": false,
-                    "static": false,
                     "w": 4,
                     "x": 8,
-                    "y": 6
+                    "y": 2
                 },
                 {
-                    "h": 8,
+                    "h": 2,
                     "i": "p7",
-                    "moved": false,
-                    "static": false,
                     "w": 4,
                     "x": 0,
-                    "y": 12
+                    "y": 4
                 },
                 {
-                    "h": 8,
+                    "h": 2,
                     "i": "p8",
-                    "moved": false,
-                    "static": false,
                     "w": 4,
                     "x": 4,
-                    "y": 12
+                    "y": 4
+                },
+                {
+                    "h": 2,
+                    "i": "p9",
+                    "w": 4,
+                    "x": 8,
+                    "y": 4
                 }
             ],
-            "panelMap": {},
             "tags": [
                 "ai-observability",
-                "openllmetry"
+                "openllmetry",
+                "rag"
             ],
-            "title": "02_openllmetry \u2014 Auto-Instrumented Metrics",
+            "title": "03_openllmetry_manual \u2014 Full RAG Observability",
             "version": "v5",
             "widgets": [
                 {
-                    "description": "Tokens consumed per second. Source: OpenLLMetry auto-instruments OpenAI SDK.",
+                    "description": "Tokens consumed per second.",
                     "id": "p1",
                     "panelTypes": "graph",
                     "query": {
@@ -121,7 +112,7 @@
                     "title": "[OpenLLMetry] Token Usage Rate"
                 },
                 {
-                    "description": "Average LLM call latency. Source: OpenLLMetry auto-instruments OpenAI SDK.",
+                    "description": "Average LLM call latency.",
                     "id": "p2",
                     "panelTypes": "graph",
                     "query": {
@@ -151,7 +142,7 @@
                     "title": "[OpenLLMetry] LLM Call Duration"
                 },
                 {
-                    "description": "Completions per second. Source: OpenLLMetry auto-instruments OpenAI SDK.",
+                    "description": "Completions per second.",
                     "id": "p3",
                     "panelTypes": "graph",
                     "query": {
@@ -181,7 +172,7 @@
                     "title": "[OpenLLMetry] LLM Completions Rate"
                 },
                 {
-                    "description": "End-to-end latency. Source: OTel FastAPI auto-instrumentation.",
+                    "description": "End-to-end latency.",
                     "id": "p4",
                     "panelTypes": "graph",
                     "query": {
@@ -211,68 +202,8 @@
                     "title": "[OTel FastAPI] Request Duration (p95)"
                 },
                 {
-                    "description": "Payload sizes. Source: OTel FastAPI auto-instrumentation.",
+                    "description": "Concurrent requests.",
                     "id": "p5",
-                    "panelTypes": "graph",
-                    "query": {
-                        "builder": {
-                            "queryData": [
-                                {
-                                    "aggregations": [
-                                        {
-                                            "metricName": "http.server.request.size.sum",
-                                            "spaceAggregation": "avg",
-                                            "temporality": null,
-                                            "timeAggregation": "avg"
-                                        }
-                                    ],
-                                    "dataSource": "metrics",
-                                    "disabled": false,
-                                    "expression": "A",
-                                    "having": {
-                                        "expression": ""
-                                    },
-                                    "queryName": "A"
-                                }
-                            ]
-                        },
-                        "queryType": "builder"
-                    },
-                    "title": "[OTel FastAPI] Request Size"
-                },
-                {
-                    "description": "Response sizes. Source: OTel FastAPI auto-instrumentation.",
-                    "id": "p6",
-                    "panelTypes": "graph",
-                    "query": {
-                        "builder": {
-                            "queryData": [
-                                {
-                                    "aggregations": [
-                                        {
-                                            "metricName": "http.server.response.size.sum",
-                                            "spaceAggregation": "avg",
-                                            "temporality": null,
-                                            "timeAggregation": "avg"
-                                        }
-                                    ],
-                                    "dataSource": "metrics",
-                                    "disabled": false,
-                                    "expression": "A",
-                                    "having": {
-                                        "expression": ""
-                                    },
-                                    "queryName": "A"
-                                }
-                            ]
-                        },
-                        "queryType": "builder"
-                    },
-                    "title": "[OTel FastAPI] Response Size"
-                },
-                {
-                    "description": "Concurrent requests. Source: OTel FastAPI auto-instrumentation.",
-                    "id": "p7",
                     "panelTypes": "graph",
                     "query": {
                         "builder": {
@@ -301,8 +232,8 @@
                     "title": "[OTel FastAPI] Active Requests"
                 },
                 {
-                    "description": "Cumulative request count. Source: OTel FastAPI auto-instrumentation.",
-                    "id": "p8",
+                    "description": "Cumulative request count.",
+                    "id": "p6",
                     "panelTypes": "value",
                     "query": {
                         "builder": {
@@ -329,6 +260,96 @@
                         "queryType": "builder"
                     },
                     "title": "[OTel FastAPI] Total Requests"
+                },
+                {
+                    "description": "Median cosine similarity. Low = bad retrieval quality.",
+                    "id": "p7",
+                    "panelTypes": "graph",
+                    "query": {
+                        "builder": {
+                            "queryData": [
+                                {
+                                    "aggregations": [
+                                        {
+                                            "metricName": "rag.retrieve.similarity.bucket",
+                                            "spaceAggregation": "avg",
+                                            "temporality": null,
+                                            "timeAggregation": "avg"
+                                        }
+                                    ],
+                                    "dataSource": "metrics",
+                                    "disabled": false,
+                                    "expression": "A",
+                                    "having": {
+                                        "expression": ""
+                                    },
+                                    "queryName": "A"
+                                }
+                            ]
+                        },
+                        "queryType": "builder"
+                    },
+                    "title": "[Manual] Retrieval Similarity (p50)"
+                },
+                {
+                    "description": "Total retrieval operations per second.",
+                    "id": "p8",
+                    "panelTypes": "graph",
+                    "query": {
+                        "builder": {
+                            "queryData": [
+                                {
+                                    "aggregations": [
+                                        {
+                                            "metricName": "rag.retrieve.count",
+                                            "spaceAggregation": "sum",
+                                            "temporality": null,
+                                            "timeAggregation": "rate"
+                                        }
+                                    ],
+                                    "dataSource": "metrics",
+                                    "disabled": false,
+                                    "expression": "A",
+                                    "having": {
+                                        "expression": ""
+                                    },
+                                    "queryName": "A"
+                                }
+                            ]
+                        },
+                        "queryType": "builder"
+                    },
+                    "title": "[Manual] Retrieval Count"
+                },
+                {
+                    "description": "Retrievals returning zero results. Rising = missing documents.",
+                    "id": "p9",
+                    "panelTypes": "graph",
+                    "query": {
+                        "builder": {
+                            "queryData": [
+                                {
+                                    "aggregations": [
+                                        {
+                                            "metricName": "rag.retrieve.empty",
+                                            "spaceAggregation": "sum",
+                                            "temporality": null,
+                                            "timeAggregation": "rate"
+                                        }
+                                    ],
+                                    "dataSource": "metrics",
+                                    "disabled": false,
+                                    "expression": "A",
+                                    "having": {
+                                        "expression": ""
+                                    },
+                                    "queryName": "A"
+                                }
+                            ]
+                        },
+                        "queryType": "builder"
+                    },
+                    "title": "[Manual] Empty Retrievals"
                 }
             ]
         },
