@@ -82,3 +82,14 @@ Each experiment should answer:
 - What's the effort required (zero-code vs manual)?
 - What's NOT visible (gaps)?
 - What personas benefit from this setup?
+
+## Development Rules
+
+1. **Test before committing.** All setups must be verified working (app starts, traces/metrics/logs arrive in sink) before any commit.
+2. **No git commits without user approval.** Stage changes, show status, wait for explicit go-ahead.
+3. **Dockerized by default.** Always prefer containerized setups to prevent "works on my machine" issues. Apps run in Docker, infra runs in Docker.
+4. **No hidden defaults for critical config.** Env vars must be explicitly set — fail fast if missing.
+5. **No `-d` (detached mode)** for app containers or infra `make up`. Logs should stream to console for visibility.
+6. **Don't assume sinks.** Apps send to the OTel collector gateway. Never hardcode SigNoz/Jaeger/etc. in app code or env examples.
+7. **Keep experiments independent.** Each experiment folder must work standalone without importing from `base/` or other experiments.
+
