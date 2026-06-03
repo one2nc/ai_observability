@@ -1,4 +1,4 @@
-"""FastAPI RAG demo app — uninstrumented baseline."""
+"""FastAPI RAG demo app — OpenLLMetry + manual spans routed through Bifrost."""
 
 import logging
 import os
@@ -11,10 +11,8 @@ load_dotenv()
 from fastapi import FastAPI, File, UploadFile
 from pydantic import BaseModel
 
-import instrument
+from instrument import init_instrumentation
 import rag
-
-instrument.setup()
 
 logging.basicConfig(
     level=os.environ.get("LOG_LEVEL", "INFO"),
@@ -23,11 +21,13 @@ logging.basicConfig(
     stream=sys.stderr,
 )
 
-app = FastAPI(title="AI Observability Demo", version="0.1.0")
+app = FastAPI(title="AI Observability Demo — 04_bifrost", version="0.1.0")
+init_instrumentation(app)
 
 
 class AskRequest(BaseModel):
     query: str
+    user_id: str = "anonymous"
 
 
 class AskResponse(BaseModel):
@@ -56,7 +56,7 @@ async def ingest(file: UploadFile = File(...)):
 
 @app.post("/ask", response_model=AskResponse)
 def ask_endpoint(req: AskRequest):
-    result = rag.ask(req.query)
+    result = rag.ask(req.query, user_id=req.user_id)
     return AskResponse(query=req.query, answer=result["answer"], sources=result["sources"])
 
 

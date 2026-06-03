@@ -1,0 +1,11 @@
+Incident Response Guide
+
+The first responder should confirm the user-visible symptom, identify the affected service, and check whether the issue is ongoing. The response should prioritize customer impact over internal ownership debates.
+
+Severity 1 incidents affect production availability, data integrity, or security. They require an incident commander, a communications lead, and a technical lead.
+
+Useful debugging steps include checking recent deploys, error rates, latency percentiles, dependency health, queue depth, and database saturation.
+
+During mitigation, prefer reversible actions such as rollback, traffic shifting, feature flag disablement, or rate limiting. Avoid speculative changes that expand the blast radius.
+
+After resolution, the team writes a post-incident review with a timeline, root cause, contributing factors, detection gaps, and concrete follow-up actions.

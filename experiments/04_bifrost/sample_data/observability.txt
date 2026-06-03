@@ -1,0 +1,11 @@
+Observability Runbook
+
+The observability platform collects traces, metrics, and logs from application services through the OpenTelemetry collector gateway. Applications send OTLP HTTP traffic to the gateway, and the gateway routes telemetry to the selected sink.
+
+Traces are used to understand request paths, latency breakdowns, and error propagation. A useful trace includes service name, route, operation name, model name, and user-facing workflow attributes.
+
+Metrics are used to track rates, latency distributions, token usage, request sizes, and retry behavior. Dashboards should use metrics that are actually emitted by the app or backend, not guessed names.
+
+Logs are used for detailed context during incidents. They should include timestamps, severity, service name, request identifiers, and actionable error messages.
+
+Common alert signals include high p95 latency, elevated upstream error rate, missing telemetry, sudden token spikes, and retrieval quality drops.

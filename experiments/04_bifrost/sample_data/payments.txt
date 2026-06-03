@@ -1,0 +1,11 @@
+Payments Service Notes
+
+The payments service validates orders, creates payment intents, confirms provider responses, and records ledger entries. The ledger is the source of truth for money movement.
+
+Idempotency keys are required for payment creation and refund requests. Replaying the same idempotency key should return the same logical result and must not create duplicate charges.
+
+Provider failures can be transient or terminal. Transient failures include timeouts, network errors, and retryable 5xx responses. Terminal failures include invalid card details, insufficient funds, and blocked accounts.
+
+Reconciliation compares internal ledger records with provider settlement reports. Differences must be investigated before financial close.
+
+Useful payment metrics include authorization success rate, capture latency, refund volume, provider error rate, duplicate idempotency attempts, and reconciliation mismatch count.
