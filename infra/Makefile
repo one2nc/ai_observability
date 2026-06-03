@@ -1,22 +1,42 @@
-.PHONY: up down status clean bootstrap
+.PHONY: up down status clean check-signoz-traces check-signoz-logs check-signoz-metrics
 
-SIGNOZ_DIR := .vendor/signoz/deploy/docker
-COMPOSE := docker compose -f $(SIGNOZ_DIR)/docker-compose.yaml -f docker-compose.yml
+SINK ?= signoz
+SIGNOZ_COMPOSE_DIR := .vendor/signoz/deploy/docker
+SIGNOZ_OVERRIDE := sinks/signoz/docker-compose.yml
 
-up: $(SIGNOZ_DIR)/docker-compose.yaml
-	$(COMPOSE) up
+up: sink-up
+	cd postgres && docker compose up -d
+	cd otel-collector-gateway && docker compose up
 
 down:
-	$(COMPOSE) down
+	cd otel-collector-gateway && docker compose down
+	cd postgres && docker compose down
+	$(MAKE) sink-down
 
-$(SIGNOZ_DIR)/docker-compose.yaml:
-	./bootstrap_signoz.sh
+sink-up:
+ifeq ($(SINK),signoz)
+	cd sinks/signoz && ./bootstrap.sh
+	cd $(SIGNOZ_COMPOSE_DIR) && docker compose -f docker-compose.yaml -f ../../../../$(SIGNOZ_OVERRIDE) up -d
+endif
+
+sink-down:
+ifeq ($(SINK),signoz)
+	cd $(SIGNOZ_COMPOSE_DIR) && docker compose -f docker-compose.yaml -f ../../../../$(SIGNOZ_OVERRIDE) down
+endif
 
 status:
-	$(COMPOSE) ps
+	cd postgres && docker compose ps
+	cd otel-collector-gateway && docker compose ps
+ifeq ($(SINK),signoz)
+	cd $(SIGNOZ_COMPOSE_DIR) && docker compose ps
+endif
 
 clean:
-	$(COMPOSE) down -v
+	cd otel-collector-gateway && docker compose down -v
+	cd postgres && docker compose down -v
+ifeq ($(SINK),signoz)
+	cd $(SIGNOZ_COMPOSE_DIR) && docker compose -f docker-compose.yaml -f ../../../../$(SIGNOZ_OVERRIDE) down -v
+endif
 
 check-signoz-traces:
 	@docker exec signoz-clickhouse clickhouse-client --query "SELECT count() as total_spans FROM signoz_traces.signoz_index_v3"

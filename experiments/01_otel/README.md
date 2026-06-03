@@ -11,14 +11,13 @@ graph LR
     RAG -->|span: rag.embed| OpenAI[OpenAI Embeddings]
     RAG -->|span: rag.vector_search| PG[pgvector]
     RAG -->|span: rag.generate| LLM[Chat Completions]
-    FastAPI -->|OTLP| Collector[SigNoz OTel Collector]
-    Collector --> ClickHouse
-    ClickHouse --> SigNoz[SigNoz UI]
+    FastAPI -->|OTLP :4418| Gateway[OTel Collector Gateway]
+    Gateway -->|OTLP| Sink[Sink]
 ```
 
 ## What this captures
 
-| What | How | Visible in SigNoz? |
+| What | How | Visible in sink? |
 |------|-----|-------------------|
 | HTTP request spans | FastAPI auto-instrumentation | Yes |
 | `rag.embed` span | Manual span with model + num_texts | Yes |
@@ -40,23 +39,19 @@ These gaps are what `02_openllmetry` fills.
 ## Usage
 
 ```bash
-# 1. Start shared infra (from repo root)
-make -C ../../infra up
+# 1. Start shared infra
+cd ../../infra && make up
 
-# 2. Setup deps
-make setup
-
-# 3. Configure
+# 2. Configure
 cp .env.example .env
 # Edit .env with your keys
 
-# 4. Run
-make app
+# 3. Run
+make up
 
-# 5. Test
+# 4. Test (from another terminal)
 make ingest
 make ask
 
-# 6. View traces
-# Open http://localhost:8080 (SigNoz UI)
+# 5. View traces in your configured sink (e.g. http://localhost:3301 for SigNoz)
 ```

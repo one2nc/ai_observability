@@ -11,13 +11,10 @@ graph LR
     RAG --> OpenAI[OpenAI Embeddings]
     RAG --> PG[pgvector]
     RAG --> LLM[Chat Completions]
-
     Traceloop[Traceloop SDK] -.->|auto-patches| OpenAI
     Traceloop -.->|auto-patches| LLM
-    FastAPI -->|OTLP traces + metrics| Collector[SigNoz OTel Collector]
-    FastAPI -->|OTLP logs| Collector
-    Collector --> ClickHouse
-    ClickHouse --> SigNoz[SigNoz UI]
+    FastAPI -->|OTLP :4418| Gateway[OTel Collector Gateway]
+    Gateway -->|OTLP| Sink[Sink]
 
     style Traceloop stroke-dasharray: 5 5
 ```
@@ -41,21 +38,20 @@ graph LR
 ## Usage
 
 ```bash
-# 1. Start shared infra (from repo root)
-make -C ../../infra up
+# 1. Start shared infra
+cd ../../infra && make up
 
 # 2. Configure
 cp .env.example .env
 # Edit .env with your keys
 
 # 3. Run
-make app
+make up
 
-# 4. Test
+# 4. Test (from another terminal)
 make ingest
 make ask
 
-# 5. View traces
-# Open http://localhost:3301 (SigNoz UI)
+# 5. View traces in your configured sink (e.g. http://localhost:3301 for SigNoz)
 # Look for gen_ai.* attributes on spans
 ```

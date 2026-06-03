@@ -30,6 +30,7 @@ class AskRequest(BaseModel):
 
 
 class AskResponse(BaseModel):
+    query: str
     answer: str
     sources: list[dict]
 
@@ -55,7 +56,7 @@ async def ingest(file: UploadFile = File(...)):
 @app.post("/ask", response_model=AskResponse)
 def ask_endpoint(req: AskRequest):
     result = rag.ask(req.query)
-    return AskResponse(answer=result["answer"], sources=result["sources"])
+    return AskResponse(query=req.query, answer=result["answer"], sources=result["sources"])
 
 
 if __name__ == "__main__":

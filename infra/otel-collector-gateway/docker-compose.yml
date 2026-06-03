@@ -1,0 +1,13 @@
+services:
+  otel-collector-gateway:
+    image: otel/opentelemetry-collector-contrib:0.130.0
+    container_name: ai-obs-otel-gateway
+    restart: unless-stopped
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ./config.yaml:/etc/otel/config.yaml:ro
+    ports:
+      - "4417:4317"
+      - "4418:4318"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

@@ -1,14 +1,11 @@
-.PHONY: setup infra app app-down ingest ask health
+.PHONY: up down ingest ask health logs
 
 PORT ?= 8001
 
-infra:
-	$(MAKE) -C ../../infra up
-
-app:
+up:
 	docker compose up --build
 
-app-down:
+down:
 	docker compose down
 
 ingest:
@@ -21,4 +18,4 @@ health:
 	curl -s http://localhost:$(PORT)/health | python3 -m json.tool
 
 logs:
-	docker compose logs -f app
+	docker compose logs -f

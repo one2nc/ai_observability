@@ -16,16 +16,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - signoz-net
-
-  # Override SigNoz UI port to avoid conflict with Bifrost on 8080
-  signoz:
-    ports:
-      - "3301:8080"
 
 volumes:
   pgdata:
-
-networks:
-  signoz-net:

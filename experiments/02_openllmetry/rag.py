@@ -121,7 +121,8 @@ def generate(query: str, context_chunks: list[dict]) -> str:
     context = "\n---\n".join(c["content"] for c in context_chunks)
     system_prompt = (
         "You are a helpful assistant. Answer the user's question using ONLY the provided context. "
-        "If the context does not contain enough information, say so."
+        "Do NOT add any information that is not explicitly present in the context. "
+        "If the context does not contain enough information, say 'I don't have enough information to answer this.'"
     )
     user_prompt = f"Context:\n{context}\n\nQuestion: {query}"
 
@@ -137,9 +138,12 @@ def generate(query: str, context_chunks: list[dict]) -> str:
 
 
 def ingest_file(file_content: str, source: str) -> int:
-    """Full ingest pipeline: chunk -> embed -> store. Returns chunk count."""
+    """Full ingest pipeline: chunk -> embed -> store. Idempotent (replaces existing chunks for same source)."""
     conn = get_db_conn()
     ensure_table(conn)
+    with conn.cursor() as cur:
+        cur.execute("DELETE FROM chunks WHERE source = %s", (source,))
+    conn.commit()
     chunks = chunk_text(file_content)
     if not chunks:
         return 0
@@ -158,4 +162,6 @@ def ask(query: str) -> dict:
     if not context_chunks:
         return {"answer": "No relevant documents found.", "sources": []}
     answer = generate(query, context_chunks)
-    return {"answer": answer, "sources": context_chunks}
+    answer = generate(query, context_chunks)
+    sources = [{"content": c["content"], "similarity": round(c["similarity"], 3)} for c in context_chunks]
+    return {"answer": answer, "sources": sources}

@@ -2,36 +2,65 @@
 
 Centralized services used by all experiments.
 
-## Services
+## Architecture
 
-| Service | Port | Purpose |
-|---------|------|---------|
-| Postgres + pgvector | 5432 | Vector store for RAG |
-| SigNoz UI | 3301 | Observability UI (traces, metrics, logs) |
-| SigNoz OTLP (gRPC) | 4317 | Telemetry ingestion |
-| SigNoz OTLP (HTTP) | 4318 | Telemetry ingestion |
+```mermaid
+graph LR
+    App[Experiment App] -->|OTLP :4418| Gateway[OTel Collector Gateway]
+    Gateway -->|OTLP| Sink[Sink: SigNoz / VictoriaMetrics / OpenSearch / ...]
+    App -->|SQL :5432| PG[pgvector]
+```
+
+Apps always send to the gateway. To change the backend, use `SINK=<name>`. No app changes needed.
+
+## Structure
+
+```
+infra/
+├── Makefile
+├── postgres/
+│   └── docker-compose.yml
+├── otel-collector-gateway/
+│   ├── docker-compose.yml
+│   └── config.yaml
+├── sinks/
+│   └── signoz/
+│       ├── bootstrap.sh
+│       └── docker-compose.yml (port override)
+└── .vendor/                     (gitignored, cloned repos)
+```
 
 ## Usage
 
 ```bash
-make up       # start all infra (foreground)
-make down     # stop
-make clean    # stop + remove all volumes (full reset)
+make up                    # default: SINK=signoz
+make up SINK=signoz        # explicit
+make down
+make clean                 # removes volumes
+make status
 ```
 
-## First-run setup (required once)
+## Ports
 
-After `make up`, SigNoz's OTLP collector will NOT accept data until you create an admin account:
+| Service | Port | Purpose |
+|---------|------|---------|
+| Postgres + pgvector | 5432 | Vector store |
+| OTel Gateway (gRPC) | 4417 | Apps send here |
+| OTel Gateway (HTTP) | 4418 | Apps send here |
+| SigNoz UI | 3301 | Observability UI |
 
-1. Wait for all containers to be healthy (~60s)
-2. Open http://localhost:3301
-3. Create an admin account (any email/password — it's local only)
-4. The OTLP collector starts accepting data immediately after signup
+## First-run (SigNoz)
 
-This only needs to happen once. The account persists across `make down` / `make up` cycles.
-If you run `make clean`, you'll need to sign up again.
+After first `make up`, open http://localhost:3301 and create an admin account.
+The OTLP collector activates after signup. Only needed once (persists across restarts).
 
-## Verify data is flowing
+## Adding a new sink
+
+1. Create `sinks/<name>/docker-compose.yml`
+2. Add `ifeq ($(SINK),<name>)` blocks in the Makefile
+3. Update `otel-collector-gateway/config.yaml` exporters if the new sink uses a different protocol/port
+
+## Verify data
 
 ```bash
 make check-signoz-traces
