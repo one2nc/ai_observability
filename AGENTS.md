@@ -41,6 +41,7 @@ Each experiment is a standalone, self-contained copy of the base app with instru
   - Example trace with span breakdown table
   - Span attributes (auto + manual)
   - Metrics exposed with dimensions
+  - Metric dimensions appendix (list all dimensions per metric with examples)
   - Failure modes table (what's detectable, what's not)
   - Usage instructions
 - `dashboard.json` (optional) — Pre-built dashboard for the configured sink

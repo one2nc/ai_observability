@@ -89,3 +89,22 @@ make ask
 
 # 5. View traces in your configured sink
 ```
+
+## Appendix: Metric Dimensions
+
+### `http.server.duration` / `http.server.request.size` / `http.server.response.size`
+
+| Dimension | Example | Purpose |
+|-----------|---------|---------|
+| `http.method` | `POST` | Slice by HTTP method |
+| `http.target` | `/ask` | Slice by endpoint path |
+| `http.status_code` | `200`, `500` | Error rate = filter by 5xx |
+| `http.flavor` | `1.1` | HTTP version |
+| `net.host.port` | `8001` | Port |
+
+### `http.server.active_requests`
+
+| Dimension | Example | Purpose |
+|-----------|---------|---------|
+| `http.method` | `POST` | Slice by method |
+| `http.scheme` | `http` | Protocol |
