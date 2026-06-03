@@ -92,4 +92,5 @@ Each experiment should answer:
 5. **No `-d` (detached mode)** for app containers or infra `make up`. Logs should stream to console for visibility.
 6. **Don't assume sinks.** Apps send to the OTel collector gateway. Never hardcode SigNoz/Jaeger/etc. in app code or env examples.
 7. **Keep experiments independent.** Each experiment folder must work standalone without importing from `base/` or other experiments.
+8. **Visualize metrics, don't just list them.** Create importable dashboards for the configured sink (e.g. `dashboard.json` for SigNoz, `dashboard.grafana.json` for Grafana). Every metric documented in the README must have a corresponding dashboard panel.
 
