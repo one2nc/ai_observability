@@ -1,0 +1,272 @@
+{
+  "dashboard": {
+    "description": "Auto-instrumented metrics from OpenLLMetry (LLM-specific) and FastAPI (HTTP-level). Zero manual code.",
+    "panels": [
+      {
+        "collapsed": false,
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 0
+        },
+        "title": "OpenLLMetry \u2014 LLM Metrics (auto-instrumented)",
+        "type": "row"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Tokens consumed per second by LLM calls, split by operation (chat vs embeddings). Directly correlates to cost.",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 1
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(gen_ai_client_token_usage_sum{service_name=\"ai-obs-02-openllmetry\"}[1m])) by (gen_ai_operation_name)",
+            "legendFormat": "{{gen_ai_operation_name}}"
+          }
+        ],
+        "title": "Token Usage Rate",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "95th percentile duration of LLM API calls. Spikes indicate provider slowdowns or large prompts.",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 1
+        },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(gen_ai_client_operation_duration_seconds_bucket{service_name=\"ai-obs-02-openllmetry\"}[1m])) by (le, gen_ai_operation_name))",
+            "legendFormat": "p95 {{gen_ai_operation_name}}"
+          }
+        ],
+        "title": "LLM Call Duration (p95)",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Total tokens consumed split by response model. Shows which model is costing the most.",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 9
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(gen_ai_client_token_usage_sum{service_name=\"ai-obs-02-openllmetry\"}[1m])) by (gen_ai_response_model)",
+            "legendFormat": "{{gen_ai_response_model}}"
+          }
+        ],
+        "title": "Token Usage by Model",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Cumulative number of LLM completions generated. Each /ask request produces one completion.",
+        "gridPos": {
+          "h": 8,
+          "w": 6,
+          "x": 12,
+          "y": 9
+        },
+        "targets": [
+          {
+            "expr": "sum(gen_ai_client_generation_choices_choice_total{service_name=\"ai-obs-02-openllmetry\"})",
+            "legendFormat": "completions"
+          }
+        ],
+        "title": "LLM Completions Total",
+        "type": "stat"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Total number of embedding API calls made.",
+        "gridPos": {
+          "h": 8,
+          "w": 6,
+          "x": 18,
+          "y": 9
+        },
+        "targets": [
+          {
+            "expr": "sum(llm_openai_embeddings_vector_size_element_total{service_name=\"ai-obs-02-openllmetry\"}) / 1536",
+            "legendFormat": "embed calls"
+          }
+        ],
+        "title": "Embedding Calls Total",
+        "type": "stat"
+      },
+      {
+        "collapsed": false,
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 17
+        },
+        "title": "FastAPI \u2014 HTTP Metrics (auto-instrumented)",
+        "type": "row"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "HTTP requests per second by endpoint. Shows traffic volume.",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 18
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(http_server_duration_milliseconds_count{service_name=\"ai-obs-02-openllmetry\"}[1m])) by (http_target)",
+            "legendFormat": "{{http_target}}"
+          }
+        ],
+        "title": "Request Rate (req/s)",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "95th percentile end-to-end latency per endpoint. This is what the user experiences.",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 18
+        },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(http_server_duration_milliseconds_bucket{service_name=\"ai-obs-02-openllmetry\"}[1m])) by (le, http_target))",
+            "legendFormat": "p95 {{http_target}}"
+          }
+        ],
+        "title": "Request Duration p95 (ms)",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Concurrent in-flight requests. High values mean the app is saturated.",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 26
+        },
+        "targets": [
+          {
+            "expr": "http_server_active_requests{service_name=\"ai-obs-02-openllmetry\"}",
+            "legendFormat": "{{http_method}} active"
+          }
+        ],
+        "title": "Active Requests",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Rate of 5xx responses. Non-zero means failures reaching users.",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 26
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(http_server_duration_milliseconds_count{service_name=\"ai-obs-02-openllmetry\", http_status_code=~\"5..\"}[1m])) by (http_target)",
+            "legendFormat": "5xx {{http_target}}"
+          }
+        ],
+        "title": "Error Rate (5xx)",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Average request payload size per endpoint. Large values on /ask may indicate prompt injection or oversized queries.",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 34
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(http_server_request_size_bytes_sum{service_name=\"ai-obs-02-openllmetry\"}[1m])) by (http_target) / sum(rate(http_server_request_size_bytes_count{service_name=\"ai-obs-02-openllmetry\"}[1m])) by (http_target)",
+            "legendFormat": "avg {{http_target}}"
+          }
+        ],
+        "title": "Request Size (bytes, avg)",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Average response payload size per endpoint. Large /ask responses indicate verbose LLM output.",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 34
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(http_server_response_size_bytes_sum{service_name=\"ai-obs-02-openllmetry\"}[1m])) by (http_target) / sum(rate(http_server_response_size_bytes_count{service_name=\"ai-obs-02-openllmetry\"}[1m])) by (http_target)",
+            "legendFormat": "avg {{http_target}}"
+          }
+        ],
+        "title": "Response Size (bytes, avg)",
+        "type": "timeseries"
+      }
+    ],
+    "schemaVersion": 39,
+    "tags": [
+      "ai-observability",
+      "02_openllmetry",
+      "openllmetry",
+      "gen_ai"
+    ],
+    "timezone": "browser",
+    "title": "02_openllmetry \u2014 GenAI + HTTP Metrics",
+    "uid": "cfo588bo6cp34a",
+    "version": 3
+  },
+  "overwrite": true
+}

@@ -32,38 +32,63 @@ graph LR
 | Logs | ✅ | ✅ |
 | Metrics (HTTP + gen_ai) | ✅ | ✅ |
 
-## Example trace (SigNoz)
+## Example traces
 
-A single `POST /ask` produces 11 spans:
+### POST /ask (3.83s, 11 spans)
+
+![Trace: POST /ask](images/trace-ask.png)
 
 ```
-POST /ask (5.06s)
-├── POST /ask http receive
-├── rag.ask (5.00s)
-│   ├── rag.retrieve (680ms)
-│   │   ├── rag.embed (669ms)
-│   │   │   └── openai.embeddings (661ms)
-│   │   └── rag.vector_search
-│   └── rag.generate (4.30s)
-│       └── openai.chat (4.30s)
-├── POST /ask http send
-└── POST /ask http send
+POST /ask (3.83s)
+├── POST /ask http receive (17µs)
+├── rag.ask (3.83s)
+│   ├── rag.retrieve (758ms)
+│   │   ├── rag.embed (746ms)
+│   │   │   └── openai.embeddings (735ms)
+│   │   └── rag.vector_search (9ms)
+│   └── rag.generate (3.05s)
+│       └── openai.chat (3.04s)
+├── POST /ask http send (24µs)
+└── POST /ask http send (15µs)
 ```
 
-**Span breakdown:**
+| # | Span | Parent | Duration | Source | What it tells you | Sample attributes |
+|---|------|--------|----------|--------|-------------------|-------------------|
+| 1 | `POST /ask` | — | 3.83s | FastAPI auto | How long did the user wait? | `http.method=POST`, `http.target=/ask`, `http.status_code=200` |
+| 2 | `POST /ask http receive` | `POST /ask` | 17µs | FastAPI auto | How long to receive the request? | — |
+| 3 | `rag.ask` | `POST /ask` | 3.83s | Manual | Who asked? What did they ask? | `user.id=saurabh`, `ask.query=What does the kube-scheduler do?` |
+| 4 | `rag.retrieve` | `rag.ask` | 758ms | Manual | How relevant were the retrieved chunks? | `retrieve.top_k=5`, `retrieve.num_results=5`, `retrieve.similarity_avg=0.485`, `retrieve.similarity_min=0.308`, `retrieve.similarity_max=0.574` |
+| 5 | `rag.embed` | `rag.retrieve` | 746ms | Manual | How long did query embedding take? | `embed.model=openai/text-embedding-3-small`, `embed.num_texts=1` |
+| 6 | `openai.embeddings` | `rag.embed` | 735ms | OpenLLMetry auto | How many tokens did embedding consume? | `gen_ai.usage.input_tokens=8`, `gen_ai.request.model=text-embedding-3-small` |
+| 7 | `rag.vector_search` | `rag.retrieve` | 9ms | Manual | Is the database the bottleneck? | — |
+| 8 | `rag.generate` | `rag.ask` | 3.05s | Manual | How many context chunks sent to LLM? | `generate.model=claude-sonnet-4`, `generate.num_context_chunks=5` |
+| 9 | `openai.chat` | `rag.generate` | 3.04s | OpenLLMetry auto | How many tokens consumed? | `gen_ai.usage.input_tokens=1250`, `gen_ai.usage.total_tokens=1490` |
+| 10 | `POST /ask http send` (×2) | `POST /ask` | ~24µs | FastAPI auto | How long to send the response? | — |
 
-| Span | Parent | Duration | Source | Question answered | Sample attributes |
-|------|--------|----------|--------|-------------------|-------------------|
-| `POST /ask` | — | 5.06s | FastAPI auto | How long did the user wait? | `http.method=POST`, `http.target=/ask`, `http.status_code=200` |
-| `POST /ask http receive` | `POST /ask` | — | FastAPI auto | How long to receive the request body? | `asgi.event.type=http.request` |
-| `rag.ask` | `POST /ask` | 5.00s | Manual | Who asked? What did they ask? | `user.id=saurabh`, `ask.query=What does the kube-scheduler do?` |
-| `rag.retrieve` | `rag.ask` | 680ms | Manual | How relevant were the retrieved chunks? | `retrieve.top_k=5`, `retrieve.num_results=5`, `retrieve.similarity_avg=0.485`, `retrieve.similarity_min=0.308`, `retrieve.similarity_max=0.574` |
-| `rag.embed` | `rag.retrieve` | 669ms | Manual | How long did query embedding take? | `embed.model=openai/text-embedding-3-small`, `embed.num_texts=1` |
-| `openai.embeddings` | `rag.embed` | 661ms | OpenLLMetry auto | How many tokens did embedding consume? | `gen_ai.usage.input_tokens=8`, `gen_ai.request.model=text-embedding-3-small`, `gen_ai.provider.name=openrouter` |
-| `rag.vector_search` | `rag.retrieve` | <1ms | Manual | Is the database the bottleneck? | — |
-| `rag.generate` | `rag.ask` | 4.30s | Manual | How many context chunks were sent to the LLM? | `generate.model=claude-sonnet-4`, `generate.num_context_chunks=5` |
-| `openai.chat` | `rag.generate` | 4.30s | OpenLLMetry auto | How many tokens consumed? Which model responded? | `gen_ai.usage.input_tokens=1250`, `gen_ai.usage.total_tokens=1490`, `gen_ai.response.model=claude-sonnet-4` |
-| `POST /ask http send` (×2) | `POST /ask` | — | FastAPI auto | How long to send the response? | `asgi.event.type=http.response.body` |
+### POST /ingest (1.47s, 8 spans)
+
+![Trace: POST /ingest](images/trace-ingest.png)
+
+```
+POST /ingest (1.47s)
+├── POST /ingest http receive (19µs)
+├── rag.ingest (1.46s)
+│   ├── rag.embed (1.42s)
+│   │   └── openai.embeddings (1.41s)
+│   └── rag.store (22ms)
+├── POST /ingest http send (33µs)
+└── POST /ingest http send (18µs)
+```
+
+| # | Span | Parent | Duration | Source | What it tells you | Sample attributes |
+|---|------|--------|----------|--------|-------------------|-------------------|
+| 1 | `POST /ingest` | — | 1.47s | FastAPI auto | How long did ingestion take? | `http.method=POST`, `http.target=/ingest`, `http.status_code=200` |
+| 2 | `POST /ingest http receive` | `POST /ingest` | 19µs | FastAPI auto | How long to receive the upload? | — |
+| 3 | `rag.ingest` | `POST /ingest` | 1.46s | Manual | How long did the full ingest pipeline take? | `ingest.source=kubernetes.txt` |
+| 4 | `rag.embed` | `rag.ingest` | 1.42s | Manual | How long to embed all chunks? | `embed.model=openai/text-embedding-3-small`, `embed.num_texts=7` |
+| 5 | `openai.embeddings` | `rag.embed` | 1.41s | OpenLLMetry auto | How many tokens did embedding consume? | `gen_ai.usage.input_tokens=350` |
+| 6 | `rag.store` | `rag.ingest` | 22ms | Manual | How long to write to pgvector? | `store.source=kubernetes.txt`, `store.num_chunks=7` |
+| 7 | `POST /ingest http send` (×2) | `POST /ingest` | ~33µs | FastAPI auto | How long to send the response? | — |
 
 ## Span attributes
 
@@ -108,51 +133,65 @@ POST /ask (5.06s)
 - `generate.num_context_chunks` → correlate answer quality with context size
 - `embed.num_texts` → batch size visibility for embedding calls
 
-## Metrics exposed
+## Metrics dashboard
 
-| Metric | Source | What it tells you | Why it's useful |
-|--------|--------|-------------------|-----------------|
-| `gen_ai.client.token.usage` | OpenLLMetry auto | Tokens consumed per LLM call | Cost tracking, budget alerts |
-| `gen_ai.client.operation.duration` | OpenLLMetry auto | LLM call latency | Detect provider slowdowns |
-| `gen_ai.client.generation.choices` | OpenLLMetry auto | Number of completions returned | LLM call count |
-| `http.server.duration` | FastAPI auto | End-to-end request latency | User-facing SLA |
-| `http.server.active_requests` | FastAPI auto | Concurrent requests | Capacity planning |
-| `rag.retrieve.similarity` | **Custom (manual)** | Cosine similarity of each retrieved chunk | Alert on bad retrievals (similarity < threshold) |
-| `rag.retrieve.count` | **Custom (manual)** | Total retrieval operations | Track RAG usage volume |
-| `rag.retrieve.empty` | **Custom (manual)** | Retrievals returning zero results | Detect missing documents, index gaps |
+![Metrics dashboard](images/metrics-dashboard.png)
+
+### OpenLLMetry — LLM Metrics (auto-instrumented)
+
+| Panel | Metric | PromQL | What it tells you |
+|-------|--------|--------|-------------------|
+| Token Usage Rate | `gen_ai_client_token_usage_sum` | `sum(rate(...[1m])) by (gen_ai_operation_name)` | Tokens consumed per second, split by chat vs embeddings. |
+| LLM Call Duration (p95) | `gen_ai_client_operation_duration_seconds_bucket` | `histogram_quantile(0.95, ...)` | 95th percentile LLM call latency. |
+| Token Usage by Model | `gen_ai_client_token_usage_sum` | `sum(rate(...[1m])) by (gen_ai_response_model)` | Which model consumes the most tokens. |
+| LLM Completions Total | `gen_ai_client_generation_choices_choice_total` | `sum(...)` | Cumulative LLM completions (138 shown). |
+| Embedding Calls Total | `llm_openai_embeddings_vector_size_element_total` | `sum(...) / 1536` | Total embedding calls (144 shown). |
+
+### Manual — RAG Pipeline Metrics (custom instrumentation)
+
+| Panel | Metric | PromQL | What it tells you |
+|-------|--------|--------|-------------------|
+| Retrieval Similarity (p50/p95) | `rag_retrieve_similarity_score_bucket` | `histogram_quantile(0.50, ...) / histogram_quantile(0.95, ...)` | Cosine similarity of retrieved chunks. Dropping p50 = quality degrading. |
+| Retrieval Count Rate | `rag_retrieve_count_total` | `sum(rate(...[1m]))` | Retrieval operations per second. |
+| Empty Retrievals | `rag_retrieve_empty_total` | `sum(rate(...[1m]))` | Retrievals with zero results. Rising = missing documents. |
+
+### FastAPI — HTTP Metrics (auto-instrumented)
+
+| Panel | Metric | PromQL | What it tells you |
+|-------|--------|--------|-------------------|
+| Request Rate (req/s) | `http_server_duration_milliseconds_count` | `sum(rate(..._count[1m])) by (http_target)` | Requests per second by endpoint. |
+| Request Duration p95 (ms) | `http_server_duration_milliseconds_bucket` | `histogram_quantile(0.95, ...)` | Worst-case latency per endpoint. |
+| Active Requests | `http_server_active_requests` | `http_server_active_requests` | Concurrent in-flight requests. |
+| Error Rate (5xx) | `http_server_duration_milliseconds_count` | `...{http_status_code=~"5.."}` | Rate of server errors. |
+| Request Size (bytes, avg) | `http_server_request_size_bytes_sum/count` | `rate(..._sum) / rate(..._count)` | Average request payload. |
+| Response Size (bytes, avg) | `http_server_response_size_bytes_sum/count` | `rate(..._sum) / rate(..._count)` | Average response payload. |
 
 **Value of this setup:** Everything from 02 (LLM cost, latency) PLUS retrieval quality monitoring. You can now answer:
-- "Are retrievals finding relevant documents?" → `rag.retrieve.similarity` p50 dropping
-- "Is the knowledge base incomplete?" → `rag.retrieve.empty` count increasing
+- "Are retrievals finding relevant documents?" → Retrieval Similarity p50 dropping
+- "Is the knowledge base incomplete?" → Empty Retrievals count increasing
 - "Which user is burning tokens?" → `user.id` attribute on traces
-- "Is the vector search the bottleneck?" → `rag.vector_search` span duration
-
-## Dashboard
-
-A pre-built SigNoz dashboard is included in `dashboard.json`. Import it via:
-```bash
-curl -X POST http://localhost:3301/api/v1/dashboards \
-  -H "SIGNOZ-API-KEY: <your-key>" \
-  -H "Content-Type: application/json" \
-  -d @dashboard.json
-```
+- "Is the vector search the bottleneck?" → `rag.vector_search` span duration in traces
 
 ## Failure modes
 
-| # | Failure mode | Value of detecting | How to detect | Detected by | Type |
+| # | Failure mode | Why? | How? | Where? | What? |
 |---|---|---|---|---|---|
-| 1 | LLM provider down/slow | Avoid user-facing timeouts, trigger failover | Alert when avg duration exceeds threshold | `gen_ai.client.operation.duration` metric | Metric |
-| 2 | Embedding API failure | Prevent silent search degradation | Filter traces by `status=error`, span name `openai.embeddings` | `openai.embeddings` span with error status | Trace |
-| 3 | Token budget blown | Control costs before bill shock | Alert when sum rate exceeds budget per hour | `gen_ai.client.token.usage` metric | Metric |
-| 4 | Prompt injection / abuse | Detect misuse, identify abuser | Token spike → identify user via `user.id` attribute | `gen_ai.client.token.usage` spike + `user.id` on `rag.ask` span | Metric + Trace |
-| 5 | Cost runaway | Catch runaway loops or inefficient prompts | Token rate growing faster than request rate | `gen_ai.client.token.usage` rate vs `http.server.duration.count` rate | Metric |
-| 6 | Database connection failure | Avoid silent failures in retrieval | Span errors before `rag.retrieve` starts | `rag.ask` span with error status | Trace |
-| 7 | Bad retrieval (irrelevant docs) | Prevent poor answers reaching users | Alert when p50 similarity drops below threshold | `rag.retrieve.similarity` metric + `retrieve.similarity_avg` span attribute | Metric + Trace |
-| 8 | Per-user abuse / cost anomaly | Identify who is abusing the system | Group traces by `user.id`, sum token usage per user | `user.id` attribute on `rag.ask` span | Trace |
+| 1 | LLM provider down/slow | Avoid timeouts, trigger failover | Alert when p95 exceeds threshold | OpenLLMetry → LLM Call Duration (p95) | `gen_ai.client.operation.duration` |
+| 2 | Embedding API failure | Prevent silent search degradation | Filter traces by error status | Trace explorer | `openai.embeddings` span error |
+| 3 | Token budget blown | Control costs before bill shock | Alert when token rate exceeds budget | OpenLLMetry → Token Usage Rate | `gen_ai.client.token.usage` |
+| 4 | Prompt injection / abuse | Detect misuse, identify abuser | Token spike → identify user via `user.id` | OpenLLMetry → Token Usage Rate + Trace explorer | `gen_ai.client.token.usage` + `user.id` |
+| 5 | Cost runaway | Catch runaway loops | Token rate growing faster than request rate | OpenLLMetry → Token Usage Rate vs FastAPI → Request Rate | `gen_ai.client.token.usage` vs `http.server.duration.count` |
+| 6 | App is slow | Identify bottleneck step | Compare request p95 with LLM duration | FastAPI → Request Duration p95 vs OpenLLMetry → LLM Call Duration | `http.server.duration` vs `gen_ai.client.operation.duration` |
+| 7 | App errors (5xx) | Detect crashes | Alert when 5xx rate > 0 | FastAPI → Error Rate (5xx) | `http.server.duration{status=5xx}` |
+| 8 | App saturation | Prevent queuing | Alert when active requests stays high | FastAPI → Active Requests | `http.server.active_requests` |
+| 9 | Database connection failure | Avoid silent retrieval failures | Span errors before `rag.retrieve` | Trace explorer | `rag.ask` span error |
+| 10 | Bad retrieval (irrelevant docs) | Prevent poor answers | Alert when p50 similarity drops | Manual → Retrieval Similarity (p50/p95) | `rag_retrieve_similarity_score` |
+| 11 | Knowledge base gaps | Detect missing documents | Alert when empty retrievals rise | Manual → Empty Retrievals | `rag_retrieve_empty` |
+| 12 | Per-user abuse | Identify who is abusing | Group traces by `user.id` | Trace explorer | `user.id` on `rag.ask` span |
 | | **Not detectable (needs eval layer)** | | | | |
-| 9 | Model degradation | Catch quality regressions | — | Needs LLM-as-judge or human scoring | — |
-| 10 | Hallucination | Prevent incorrect answers | — | Needs ground truth comparison | — |
-| 11 | Bad chunking | Fix knowledge base gaps | — | Needs retrieval precision/recall metrics | — |
+| 13 | Model degradation | Catch quality regressions | — | — | Needs eval layer |
+| 14 | Hallucination | Prevent incorrect answers | — | — | Needs eval layer |
+| 15 | Bad chunking | Fix chunk boundaries | — | — | Needs retrieval eval |
 
 ## Usage
 

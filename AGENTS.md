@@ -36,13 +36,13 @@ Each experiment is a standalone, self-contained copy of the base app with instru
 - `pyproject.toml` — Dependencies
 - `.env.example` — Required env vars (no defaults for critical config)
 - `Makefile` — `make up`, `make down`, `make ingest`, `make ask`
-- `README.md` — Must include:
+- `README.md` — Must include (use `experiments/02_openllmetry/README.md` as template):
   - Flow diagram (mermaid)
-  - Example trace with span breakdown table
-  - Span attributes (auto + manual)
-  - Metrics exposed with dimensions
+  - Example traces with span breakdown table (columns: #, Span, Parent, Duration, Source, What it tells you, Sample attributes)
+  - Span attributes (auto + manual) with examples
+  - Metrics dashboard section with image + per-panel table (columns: Panel, Metric, PromQL, What it tells you)
   - Metric dimensions appendix (list all dimensions per metric with examples)
-  - Failure modes table (what's detectable, what's not)
+  - Failure modes table (columns: #, Failure mode, Why?, How?, Where?, What?)
   - Usage instructions
 - `dashboard.json` (optional) — Pre-built dashboard for the configured sink
 

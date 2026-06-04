@@ -1,6 +1,6 @@
 services:
   bifrost:
-    image: maximhq/bifrost:latest
+    image: maximhq/bifrost:v1.5.7
     container_name: ai-obs-bifrost
     restart: unless-stopped
     ports:
