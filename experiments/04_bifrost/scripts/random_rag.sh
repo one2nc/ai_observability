@@ -5,13 +5,15 @@ PORT="${PORT:-8004}"
 BASE_URL="${BASE_URL:-http://localhost:${PORT}}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DATA_DIR="${DATA_DIR:-${ROOT_DIR}/sample_data}"
-QUESTIONS_FILE="${QUESTIONS_FILE:-${ROOT_DIR}/sample_questions.txt}"
-USERS_FILE="${USERS_FILE:-${ROOT_DIR}/sample_users.txt}"
+EXPERIMENT_DIR="${EXPERIMENT_DIR:-${ROOT_DIR}/experiment_data}"
+QUESTIONS_FILE="${QUESTIONS_FILE:-${EXPERIMENT_DIR}/sample_questions.txt}"
+USERS_FILE="${USERS_FILE:-${EXPERIMENT_DIR}/sample_users.txt}"
+CHAT_MODELS_FILE="${CHAT_MODELS_FILE:-${EXPERIMENT_DIR}/sample_chat_models.txt}"
 
 usage() {
   printf 'Usage: %s ingest|ask|traffic [count]\n' "$0" >&2
   printf '  ingest  Randomly ingest one or more sample_data/*.txt files\n' >&2
-  printf '  ask     Ask one or more random questions with random user_id values\n' >&2
+  printf '  ask     Ask one or more random questions with random user_id and chat_model values\n' >&2
   printf '  traffic Randomly mix ingest and ask calls\n' >&2
 }
 
@@ -33,6 +35,7 @@ json_string() {
 files=()
 questions=()
 users=()
+chat_models=()
 
 load_questions() {
   questions=()
@@ -46,6 +49,14 @@ load_users() {
   while IFS= read -r line || [ -n "$line" ]; do
     [ -n "$line" ] && users+=("$line")
   done < "$USERS_FILE"
+}
+
+load_chat_models() {
+  chat_models=()
+  [ -f "$CHAT_MODELS_FILE" ] || return 0
+  while IFS= read -r line || [ -n "$line" ]; do
+    [ -n "$line" ] && chat_models+=("$line")
+  done < "$CHAT_MODELS_FILE"
 }
 
 load_files() {
@@ -83,6 +94,16 @@ pick_user() {
   fi
   idx="$(random_index "${#users[@]}")"
   printf '%s\n' "${users[$idx]}"
+}
+
+pick_chat_model() {
+  local idx
+  if [ "${#chat_models[@]}" -eq 0 ]; then
+    printf '\n'
+    return 0
+  fi
+  idx="$(random_index "${#chat_models[@]}")"
+  printf '%s\n' "${chat_models[$idx]}"
 }
 
 print_response() {
@@ -136,13 +157,19 @@ do_ingest() {
 }
 
 do_ask() {
-  local question user escaped_question escaped_user
+  local question user chat_model escaped_question escaped_user escaped_chat_model payload
   question="$(pick_question)"
   user="$(pick_user)"
+  chat_model="$(pick_chat_model)"
   escaped_question="$(printf '%s' "$question" | json_string)"
   escaped_user="$(printf '%s' "$user" | json_string)"
-  printf '\n[ask] user=%s question=%s\n' "$user" "$question" >&2
-  post_json "${BASE_URL}/ask" "{\"query\": ${escaped_question}, \"user_id\": ${escaped_user}}"
+  payload="{\"query\": ${escaped_question}, \"user_id\": ${escaped_user}}"
+  if [ -n "$chat_model" ]; then
+    escaped_chat_model="$(printf '%s' "$chat_model" | json_string)"
+    payload="{\"query\": ${escaped_question}, \"user_id\": ${escaped_user}, \"chat_model\": ${escaped_chat_model}}"
+  fi
+  printf '\n[ask] user=%s model=%s question=%s\n' "$user" "${chat_model:-default}" "$question" >&2
+  post_json "${BASE_URL}/ask" "$payload"
 }
 
 mode="${1:-}"
@@ -161,6 +188,7 @@ fi
 load_files
 load_questions
 load_users
+load_chat_models
 
 case "$mode" in
   ingest)
@@ -176,9 +204,9 @@ case "$mode" in
   traffic)
     for _ in $(seq 1 "$count"); do
       if [ "$(random_index 100)" -lt 35 ]; then
-        do_ingest
+        do_ingest || true
       else
-        do_ask
+        do_ask || true
       fi
     done
     ;;

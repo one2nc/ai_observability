@@ -56,7 +56,7 @@ Set both API keys in `.env` to the Bifrost virtual key:
 ```bash
 CHAT_API_KEY=<bifrost-virtual-key>
 CHAT_BASE_URL=http://host.docker.internal:8000/v1
-CHAT_MODEL=openai/gpt-4o-mini
+CHAT_MODEL=openrouter/gpt-4o-mini
 
 EMBED_API_KEY=<bifrost-virtual-key>
 EMBED_BASE_URL=http://host.docker.internal:8000/v1
@@ -74,16 +74,28 @@ make ingest
 make ask
 ```
 
+Override the chat model at request time:
+
+```bash
+curl -s -X POST http://localhost:8004/ask \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What does the kube-scheduler do?", "user_id": "platform-oncall", "chat_model": "openrouter/gpt-4.1-mini"}' | python3 -m json.tool
+```
+
+`CHAT_MODEL` remains the default. Per-request `chat_model` values are sent to Bifrost as provider-prefixed model names such as `openrouter/gpt-4o-mini`, so they must be models your Bifrost provider config can route. Runtime embedding-model changes are not exposed here because pgvector stores embeddings in a fixed-dimension column from `EMBED_DIM`; changing embedding models safely requires compatible dimensions and re-ingestion.
+
 Generate varied demo traffic:
 
 ```bash
 make random-ingest        # ingest one random sample_data/*.txt document
-make random-ask           # ask one random question with a random user_id
+make random-ask           # ask one random question with a random user_id and chat model
 make random-traffic       # mix random asks and ingests; default COUNT=5
 make random-traffic COUNT=25
 ```
 
-Random traffic uses `scripts/random_rag.sh`, `sample_questions.txt`, `sample_users.txt`, and the documents in `sample_data/`. The script samples from `/dev/urandom`, so repeated runs naturally vary routes, documents, users, retrieved context, token usage, and Bifrost provider calls.
+Random traffic uses `scripts/random_rag.sh`, `sample_questions.txt`, `sample_users.txt`, `sample_chat_models.txt`, and the documents in `sample_data/`. The script samples from `/dev/urandom`, so repeated runs naturally vary routes, documents, users, chat models, retrieved context, token usage, and Bifrost provider calls. Any model listed in `sample_chat_models.txt` must be routable by Bifrost/provider config, otherwise the run will produce an intentional model/routing failure.
+
+If Bifrost returns `model_blocked`, the app requested a model that the virtual key does not allow. Either remove that model from `sample_chat_models.txt` or update the Bifrost virtual key to allow it. `make random-traffic` continues after these failures so you can observe blocked-model telemetry; `make random-ask` exits non-zero for a single failed request.
 
 ## Example Trace
 
@@ -112,7 +124,7 @@ Depending on trace-context propagation through the OpenAI-compatible client and 
 |-----------|---------|---------|
 | `gen_ai.operation.name` | `chat`, `embeddings` | LLM operation type |
 | `gen_ai.provider.name` | `openai` | Provider inferred by OpenLLMetry/Bifrost path |
-| `gen_ai.request.model` | `openai/gpt-4o-mini` | Model requested by the app |
+| `gen_ai.request.model` | `openrouter/gpt-4o-mini` | Model requested by the app |
 | `gen_ai.response.model` | `gpt-4o-mini` | Model returned by upstream provider |
 | `gen_ai.usage.input_tokens` | `850` | Prompt/input tokens when reported |
 | `gen_ai.usage.output_tokens` | `120` | Completion/output tokens when reported |
@@ -126,7 +138,7 @@ Depending on trace-context propagation through the OpenAI-compatible client and 
 | Attribute | Example | Meaning |
 |-----------|---------|---------|
 | `gen_ai.provider.name` | `openai` | Upstream provider selected by Bifrost |
-| `gen_ai.request.model` | `openai/gpt-4o-mini` | Model requested by the app |
+| `gen_ai.request.model` | `openrouter/gpt-4o-mini` | Model requested by the app |
 | `gen_ai.response.model` | `gpt-4o-mini` | Model reported by the provider |
 | `gen_ai.operation.name` | `chat`, `embeddings` | LLM operation type |
 | `gen_ai.usage.input_tokens` | `850` | Prompt/input tokens when provider reports them |
@@ -144,6 +156,7 @@ Depending on trace-context propagation through the OpenAI-compatible client and 
 |-----------|------|---------|---------|
 | `user.id` | `rag.ask` | `anonymous` | Per-user attribution |
 | `ask.query` | `rag.ask` | `What does the kube-scheduler do?` | Input question |
+| `ask.chat_model` | `rag.ask` | `openrouter/gpt-4.1-mini` | Request-time chat model or `CHAT_MODEL` default |
 | `embed.model` | `rag.embed` | `openai/text-embedding-3-small` | Embedding model routed through Bifrost |
 | `embed.num_texts` | `rag.embed` | `1`, `4` | Number of texts embedded |
 | `retrieve.top_k` | `rag.retrieve` | `5` | Requested retrieval count |
@@ -151,7 +164,7 @@ Depending on trace-context propagation through the OpenAI-compatible client and 
 | `retrieve.similarity_max` | `rag.retrieve` | `0.83` | Best similarity score |
 | `retrieve.similarity_min` | `rag.retrieve` | `0.42` | Worst returned similarity score |
 | `retrieve.similarity_avg` | `rag.retrieve` | `0.61` | Mean returned similarity score |
-| `generate.model` | `rag.generate` | `openai/gpt-4o-mini` | Chat model routed through Bifrost |
+| `generate.model` | `rag.generate` | `openrouter/gpt-4o-mini` | Chat model routed through Bifrost |
 | `generate.num_context_chunks` | `rag.generate` | `5` | Chunks sent to generation |
 | `store.source` | `rag.store` | `kubernetes.txt` | Ingested source |
 | `store.num_chunks` | `rag.store` | `4` | Stored chunk count |
@@ -181,6 +194,8 @@ Prometheus normalizes OTel metric names such as `rag.retrieve.count` to names su
 | `gen_ai_client_operation_duration_seconds_sum` | OpenLLMetry | Total SDK operation duration | `gen_ai_operation_name`, `gen_ai_response_model` |
 | `gen_ai_client_generation_choices_choice_total` | OpenLLMetry | Chat completion choices | `gen_ai_response_model`, `gen_ai_response_finish_reason` |
 | `llm_openai_embeddings_vector_size_element_total` | OpenLLMetry | Embedding vector element volume | `gen_ai_response_model` |
+| `llm_openai_chat_completions_exceptions_time_total` | OpenLLMetry | Chat completion exception count/time signal | service/resource labels |
+| `llm_openai_embeddings_exceptions_time_total` | OpenLLMetry | Embedding exception count/time signal | service/resource labels |
 | `http_server_duration_milliseconds_bucket` | OTel FastAPI | App route latency | `http_target`, `http_method`, `http_status_code`, `le` |
 | `http_server_duration_milliseconds_count` | OTel FastAPI | App route request count | `http_target`, `http_method`, `http_status_code` |
 | `http_server_duration_milliseconds_sum` | OTel FastAPI | Total app route duration | `http_target`, `http_method`, `http_status_code` |
@@ -200,7 +215,7 @@ A Grafana dashboard for these metrics is included in `dashboard.grafana.json`.
 | Metric | Dimension | Examples | Notes |
 |--------|-----------|----------|-------|
 | `bifrost_upstream_requests_total` | `provider` | `openrouter` | Upstream provider selected by Bifrost |
-| `bifrost_upstream_requests_total` | `model` | `openai/gpt-4o-mini`, `openai/text-embedding-3-small` | Requested model |
+| `bifrost_upstream_requests_total` | `model` | `openrouter/gpt-4o-mini`, `openai/text-embedding-3-small` | Requested model |
 | `bifrost_upstream_requests_total` | `method` | `chat_completion`, `embedding` | Bifrost operation |
 | `bifrost_upstream_requests_total` | `virtual_key_name` | `test api key` | Virtual key name when configured |
 | `bifrost_upstream_latency_seconds_bucket` | `le` | `0.5`, `1`, `5`, `+Inf` | Prometheus histogram bucket |
@@ -208,11 +223,13 @@ A Grafana dashboard for these metrics is included in `dashboard.grafana.json`.
 | `bifrost_request_retries_bucket` | `le` | `0`, `1`, `2`, `+Inf` | Retry histogram bucket |
 | `bifrost_cost_USD_total` | `selected_key_name` | `openrouter-primary` | Provider key used by Bifrost |
 | `gen_ai_client_token_usage_sum` | `gen_ai_operation_name` | `chat`, `embeddings` | SDK operation |
-| `gen_ai_client_token_usage_sum` | `gen_ai_response_model` | `openai/gpt-4o-mini`, `text-embedding-3-small` | Response model |
+| `gen_ai_client_token_usage_sum` | `gen_ai_response_model` | `openrouter/gpt-4o-mini`, `text-embedding-3-small` | Response model |
 | `gen_ai_client_token_usage_sum` | `gen_ai_token_type` | `input`, `output` | Token type |
 | `gen_ai_client_operation_duration_seconds_bucket` | `le` | `0.5`, `1`, `5`, `+Inf` | Prometheus histogram bucket |
 | `gen_ai_client_generation_choices_choice_total` | `gen_ai_response_finish_reason` | `stop`, empty | Finish reason when reported |
 | `llm_openai_embeddings_vector_size_element_total` | `gen_ai_response_model` | `text-embedding-3-small` | Embedding model |
+| `llm_openai_chat_completions_exceptions_time_total` | `service_name` | `ai-obs-04-bifrost` | Emitted when chat completion calls fail |
+| `llm_openai_embeddings_exceptions_time_total` | `service_name` | `ai-obs-04-bifrost` | Emitted when embedding calls fail |
 | `http_server_duration_milliseconds_bucket` | `http_target` | `/ask`, `/ingest` | FastAPI target path |
 | `http_server_duration_milliseconds_bucket` | `http_method` | `POST` | HTTP method |
 | `http_server_duration_milliseconds_bucket` | `http_status_code` | `200`, `500` | Response code |

@@ -8,7 +8,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import openai
 from fastapi import FastAPI, File, UploadFile
+from fastapi import HTTPException
 from pydantic import BaseModel
 
 from instrument import init_instrumentation
@@ -28,6 +30,7 @@ init_instrumentation(app)
 class AskRequest(BaseModel):
     query: str
     user_id: str = "anonymous"
+    chat_model: str | None = None
 
 
 class AskResponse(BaseModel):
@@ -56,7 +59,17 @@ async def ingest(file: UploadFile = File(...)):
 
 @app.post("/ask", response_model=AskResponse)
 def ask_endpoint(req: AskRequest):
-    result = rag.ask(req.query, user_id=req.user_id)
+    try:
+        result = rag.ask(req.query, user_id=req.user_id, chat_model=req.chat_model)
+    except openai.APIStatusError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={
+                "error": "upstream_model_request_failed",
+                "message": str(exc),
+                "chat_model": req.chat_model,
+            },
+        ) from exc
     return AskResponse(query=req.query, answer=result["answer"], sources=result["sources"])
 
 

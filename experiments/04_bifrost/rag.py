@@ -140,9 +140,10 @@ def retrieve(conn, query: str, top_k: int = TOP_K) -> list[dict]:
         return results
 
 
-def generate(query: str, context_chunks: list[dict]) -> str:
+def generate(query: str, context_chunks: list[dict], chat_model: str | None = None) -> str:
     """Send retrieved context + query to LLM for answer generation."""
-    with tracer.start_as_current_span("rag.generate", attributes={"generate.model": CHAT_MODEL, "generate.num_context_chunks": len(context_chunks)}):
+    model = chat_model or CHAT_MODEL
+    with tracer.start_as_current_span("rag.generate", attributes={"generate.model": model, "generate.num_context_chunks": len(context_chunks)}):
         context = "\n---\n".join(c["content"] for c in context_chunks)
         system_prompt = (
             "You are a helpful assistant. Answer the user's question using ONLY the provided context. "
@@ -153,7 +154,7 @@ def generate(query: str, context_chunks: list[dict]) -> str:
 
         client = _chat_client()
         resp = client.chat.completions.create(
-            model=CHAT_MODEL,
+            model=model,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
@@ -179,15 +180,16 @@ def ingest_file(file_content: str, source: str) -> int:
         return count
 
 
-def ask(query: str, user_id: str = "anonymous") -> dict:
+def ask(query: str, user_id: str = "anonymous", chat_model: str | None = None) -> dict:
     """Full ask pipeline: embed query -> retrieve -> generate."""
-    with tracer.start_as_current_span("rag.ask", attributes={"user.id": user_id, "ask.query": query}):
+    model = chat_model or CHAT_MODEL
+    with tracer.start_as_current_span("rag.ask", attributes={"user.id": user_id, "ask.query": query, "ask.chat_model": model}):
         conn = get_db_conn()
         ensure_table(conn)
         context_chunks = retrieve(conn, query)
         conn.close()
         if not context_chunks:
             return {"answer": "No relevant documents found.", "sources": []}
-        answer = generate(query, context_chunks)
+        answer = generate(query, context_chunks, chat_model=model)
         sources = [{"content": c["content"], "similarity": round(c["similarity"], 3)} for c in context_chunks]
         return {"answer": answer, "sources": sources}
