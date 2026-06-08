@@ -1,0 +1,15 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-obs-04-bifrost
+    restart: unless-stopped
+    env_file: ${ENV_FILE:-.env}
+    ports:
+      - "8004:8004"
+    environment:
+      PORT: "8004"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on: []

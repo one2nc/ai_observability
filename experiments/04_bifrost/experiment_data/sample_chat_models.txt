@@ -1,0 +1,8 @@
+openrouter/gpt-4o-mini
+openrouter/gpt-4.1-mini
+openrouter/gpt-4.1-nano
+openrouter/gpt-5.5
+openrouter/gpt-5.4
+openrouter/gpt-5
+openrouter/gpt-4.5
+openrouter/gpt-3.5-turbo

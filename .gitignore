@@ -31,6 +31,8 @@ ENV/
 
 # Environment variables
 .env
+infra/.enc
+infra/.enc.mk
 
 # IDE
 .vscode/
@@ -71,4 +73,5 @@ coverage.xml
 # SigNoz (cloned at runtime)
 infra/signoz/
 infra/.vendor/
+infra/bifrost/data/
 common/

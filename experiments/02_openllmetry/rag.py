@@ -162,6 +162,5 @@ def ask(query: str) -> dict:
     if not context_chunks:
         return {"answer": "No relevant documents found.", "sources": []}
     answer = generate(query, context_chunks)
-    answer = generate(query, context_chunks)
     sources = [{"content": c["content"], "similarity": round(c["similarity"], 3)} for c in context_chunks]
     return {"answer": answer, "sources": sources}

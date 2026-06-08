@@ -1,0 +1,11 @@
+Feature Flag Policy
+
+Feature flags allow teams to release code separately from enabling behavior. A flag should have a clear owner, rollout plan, success metric, and removal date.
+
+Boolean flags are useful for kill switches and simple enablement. Percentage rollouts are useful when a feature should gradually reach more traffic. Targeted rollouts are useful for internal users, beta customers, or specific tenants.
+
+Every flag should define safe default behavior. Critical flags should fail closed if enabling the feature could cause data loss, security exposure, or expensive provider calls.
+
+Operational dashboards should show flag state, request volume by flag variant, latency by variant, and error rate by variant when possible.
+
+Stale flags create hidden complexity. Teams should remove flags after the rollout is complete and after the old path is no longer needed.

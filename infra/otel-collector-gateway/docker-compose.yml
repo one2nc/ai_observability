@@ -5,9 +5,11 @@ services:
     restart: unless-stopped
     command: ["--config=/etc/otel/config.yaml"]
     volumes:
-      - ./config.yaml:/etc/otel/config.yaml:ro
+      - ./${OTEL_GATEWAY_CONFIG:-config.signoz.yaml}:/etc/otel/config.yaml:ro
     ports:
       - "4417:4317"
       - "4418:4318"
+      - "8888:8888"
+      - "8889:8889"
     extra_hosts:
       - "host.docker.internal:host-gateway"

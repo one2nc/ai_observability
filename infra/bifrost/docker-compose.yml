@@ -1,0 +1,18 @@
+services:
+  bifrost:
+    image: maximhq/bifrost:v1.5.7
+    container_name: ai-obs-bifrost
+    restart: unless-stopped
+    ports:
+      - "${BIFROST_PORT:-8000}:8080"
+    environment:
+      BIFROST_API_KEY: ${BIFROST_API_KEY:-}
+      BIFROST_ENCRYPTION_KEY: ${BIFROST_ENCRYPTION_KEY:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://host.docker.internal:4418}
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-http://host.docker.internal:4418/v1/traces}
+      OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: ${OTEL_EXPORTER_OTLP_METRICS_ENDPOINT:-http://host.docker.internal:4418/v1/metrics}
+      OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-deployment.environment=local,service.namespace=ai-observability}
+    volumes:
+      - ./data:/app/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

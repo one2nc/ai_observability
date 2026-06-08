@@ -2,8 +2,11 @@
 
 PORT ?= 8001
 
+build:
+	docker compose build
+
 up:
-	docker compose up --build
+	docker compose up -d
 
 down:
 	docker compose down
@@ -19,3 +22,6 @@ health:
 
 logs:
 	docker compose logs -f
+
+dashboard:
+	curl -s -X POST http://localhost:3000/api/dashboards/db -H "Content-Type: application/json" -u admin:admin -d @dashboard.grafana.json | python3 -m json.tool

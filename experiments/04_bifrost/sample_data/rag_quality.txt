@@ -1,0 +1,11 @@
+RAG Quality Checklist
+
+A retrieval-augmented generation system depends on chunk quality, embedding quality, retrieval ranking, prompt construction, and answer grounding.
+
+Chunks should preserve enough context to answer questions without being so large that they dilute similarity search. Overlap can help retain context across chunk boundaries, but too much overlap increases storage and token cost.
+
+Retrieval quality can be inspected with similarity scores, returned chunk count, source diversity, and whether the top chunks actually contain the answer.
+
+Generation should be constrained to the retrieved context when the product requires grounded answers. If the context is insufficient, the assistant should say that it does not have enough information.
+
+Common failure modes include empty retrieval, low-similarity retrieval, stale documents, prompt injection in retrieved content, and model answers that ignore the provided context.

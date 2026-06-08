@@ -1,0 +1,350 @@
+{
+  "dashboard": {
+    "description": "OpenLLMetry auto + manual RAG metrics + FastAPI HTTP. Complete AI observability.",
+    "panels": [
+      {
+        "collapsed": false,
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 0
+        },
+        "title": "OpenLLMetry \u2014 LLM Metrics (auto-instrumented)",
+        "type": "row"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Tokens consumed per second by LLM calls, split by operation. Directly correlates to cost.",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 1
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(gen_ai_client_token_usage_sum{service_name=\"ai-obs-03-openllmetry-manual\"}[1m])) by (gen_ai_operation_name)",
+            "legendFormat": "{{gen_ai_operation_name}}"
+          }
+        ],
+        "title": "Token Usage Rate",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "95th percentile LLM call latency. Spikes indicate provider slowdowns.",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 1
+        },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(gen_ai_client_operation_duration_seconds_bucket{service_name=\"ai-obs-03-openllmetry-manual\"}[1m])) by (le, gen_ai_operation_name))",
+            "legendFormat": "p95 {{gen_ai_operation_name}}"
+          }
+        ],
+        "title": "LLM Call Duration (p95)",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Which model is consuming the most tokens (cost attribution).",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 9
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(gen_ai_client_token_usage_sum{service_name=\"ai-obs-03-openllmetry-manual\"}[1m])) by (gen_ai_response_model)",
+            "legendFormat": "{{gen_ai_response_model}}"
+          }
+        ],
+        "title": "Token Usage by Model",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Cumulative LLM completions. One per /ask request.",
+        "gridPos": {
+          "h": 8,
+          "w": 6,
+          "x": 12,
+          "y": 9
+        },
+        "targets": [
+          {
+            "expr": "sum(gen_ai_client_generation_choices_choice_total{service_name=\"ai-obs-03-openllmetry-manual\"})",
+            "legendFormat": "completions"
+          }
+        ],
+        "title": "LLM Completions Total",
+        "type": "stat"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Total embedding API calls made.",
+        "gridPos": {
+          "h": 8,
+          "w": 6,
+          "x": 18,
+          "y": 9
+        },
+        "targets": [
+          {
+            "expr": "sum(llm_openai_embeddings_vector_size_element_total{service_name=\"ai-obs-03-openllmetry-manual\"}) / 1536",
+            "legendFormat": "embed calls"
+          }
+        ],
+        "title": "Embedding Calls Total",
+        "type": "stat"
+      },
+      {
+        "collapsed": false,
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 17
+        },
+        "title": "Manual \u2014 RAG Pipeline Metrics (custom instrumentation)",
+        "type": "row"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Cosine similarity of retrieved chunks. Dropping p50 = retrieval quality degrading. Low p95 = even best chunks are irrelevant.",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 18
+        },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(rag_retrieve_similarity_score_bucket{service_name=\"ai-obs-03-openllmetry-manual\"}[1m])) by (le))",
+            "legendFormat": "p50 similarity"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(rag_retrieve_similarity_score_bucket{service_name=\"ai-obs-03-openllmetry-manual\"}[1m])) by (le))",
+            "legendFormat": "p95 similarity"
+          }
+        ],
+        "title": "Retrieval Similarity (p50 / p95)",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Retrieval operations per second. Correlate with request rate to verify 1:1 mapping.",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 18
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(rag_retrieve_count_total{service_name=\"ai-obs-03-openllmetry-manual\"}[1m]))",
+            "legendFormat": "retrievals/s"
+          }
+        ],
+        "title": "Retrieval Count Rate",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Retrievals returning zero results. Rising = documents missing from knowledge base.",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 26
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(rag_retrieve_empty_total{service_name=\"ai-obs-03-openllmetry-manual\"}[1m]))",
+            "legendFormat": "empty retrievals/s"
+          }
+        ],
+        "title": "Empty Retrievals",
+        "type": "timeseries"
+      },
+      {
+        "collapsed": false,
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 26
+        },
+        "title": "FastAPI \u2014 HTTP Metrics (auto-instrumented)",
+        "type": "row"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "HTTP requests per second by endpoint.",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 27
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(http_server_duration_milliseconds_count{service_name=\"ai-obs-03-openllmetry-manual\"}[1m])) by (http_target)",
+            "legendFormat": "{{http_target}}"
+          }
+        ],
+        "title": "Request Rate (req/s)",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "95th percentile end-to-end latency. What the user experiences.",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 27
+        },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(http_server_duration_milliseconds_bucket{service_name=\"ai-obs-03-openllmetry-manual\"}[1m])) by (le, http_target))",
+            "legendFormat": "p95 {{http_target}}"
+          }
+        ],
+        "title": "Request Duration p95 (ms)",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Concurrent in-flight requests. High = saturated or waiting on LLM.",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 35
+        },
+        "targets": [
+          {
+            "expr": "http_server_active_requests{service_name=\"ai-obs-03-openllmetry-manual\"}",
+            "legendFormat": "{{http_method}} active"
+          }
+        ],
+        "title": "Active Requests",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Rate of 5xx responses. Non-zero = failures reaching users.",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 35
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(http_server_duration_milliseconds_count{service_name=\"ai-obs-03-openllmetry-manual\", http_status_code=~\"5..\"}[1m])) by (http_target)",
+            "legendFormat": "5xx {{http_target}}"
+          }
+        ],
+        "title": "Error Rate (5xx)",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Average request payload. Large values may indicate abuse.",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 43
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(http_server_request_size_bytes_sum{service_name=\"ai-obs-03-openllmetry-manual\"}[1m])) by (http_target) / sum(rate(http_server_request_size_bytes_count{service_name=\"ai-obs-03-openllmetry-manual\"}[1m])) by (http_target)",
+            "legendFormat": "avg {{http_target}}"
+          }
+        ],
+        "title": "Request Size (bytes, avg)",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Average response payload. Large /ask = verbose LLM output.",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 43
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(http_server_response_size_bytes_sum{service_name=\"ai-obs-03-openllmetry-manual\"}[1m])) by (http_target) / sum(rate(http_server_response_size_bytes_count{service_name=\"ai-obs-03-openllmetry-manual\"}[1m])) by (http_target)",
+            "legendFormat": "avg {{http_target}}"
+          }
+        ],
+        "title": "Response Size (bytes, avg)",
+        "type": "timeseries"
+      }
+    ],
+    "schemaVersion": 39,
+    "tags": [
+      "ai-observability",
+      "03_openllmetry_manual",
+      "rag",
+      "gen_ai"
+    ],
+    "timezone": "browser",
+    "title": "03_openllmetry_manual \u2014 Full RAG Observability",
+    "uid": "afo5btwcgqry8f",
+    "version": 2
+  },
+  "overwrite": true
+}
