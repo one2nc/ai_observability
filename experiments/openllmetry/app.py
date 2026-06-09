@@ -1,4 +1,4 @@
-"""FastAPI RAG demo app — instrumented with vanilla OpenTelemetry."""
+"""FastAPI RAG demo app — instrumented with OpenLLMetry (Traceloop)."""
 
 import logging
 import os
@@ -21,7 +21,7 @@ logging.basicConfig(
     stream=sys.stderr,
 )
 
-app = FastAPI(title="AI Observability Demo — 01_otel", version="0.1.0")
+app = FastAPI(title="AI Observability Demo — openllmetry", version="0.1.0")
 init_instrumentation(app)
 
 

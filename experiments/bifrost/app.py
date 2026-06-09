@@ -23,7 +23,7 @@ logging.basicConfig(
     stream=sys.stderr,
 )
 
-app = FastAPI(title="AI Observability Demo — 04_bifrost", version="0.1.0")
+app = FastAPI(title="AI Observability Demo — bifrost", version="0.1.0")
 init_instrumentation(app)
 
 

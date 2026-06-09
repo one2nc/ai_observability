@@ -1,7 +1,7 @@
 services:
   bifrost:
     image: maximhq/bifrost:v1.5.7
-    container_name: ai-obs-bifrost
+    container_name: ai-obs-bifrost-gateway
     restart: unless-stopped
     ports:
       - "${BIFROST_PORT:-8000}:8080"

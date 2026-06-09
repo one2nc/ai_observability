@@ -1,4 +1,4 @@
-# 04_bifrost — Bifrost AI Gateway + OpenLLMetry + Manual Spans
+# bifrost — Bifrost AI Gateway + OpenLLMetry + Manual Spans
 
 Routes a fully instrumented RAG app through Bifrost AI gateway. Combines OpenLLMetry auto-instrumentation, manual RAG spans with retrieval metrics, and Bifrost gateway telemetry — showing what you get when app-side observability meets gateway-side observability.
 
@@ -26,7 +26,7 @@ graph LR
 
 ## What this captures vs other experiments
 
-| What | 01_otel | 02_openllmetry | 03_openllmetry_manual | 04_bifrost |
+| What | otel | openllmetry | openllmetry_manual | bifrost |
 |------|---------|----------------|----------------------|------------|
 | HTTP request spans | ✅ (FastAPI auto) | ✅ (FastAPI auto) | ✅ (FastAPI auto) | ✅ (FastAPI auto) |
 | Custom RAG pipeline spans | ✅ (manual) | ❌ | ✅ (manual) | ✅ (manual) |
@@ -59,13 +59,13 @@ POST /ask (864.13ms)
 │   │   │           ├── key.selection (5.75µs)
 │   │   │           ├── embeddings text-embedding-3-small (739.75ms)
 │   │   │           └── plugin.prompts.posthook (7.25µs)
-│   │   └── ai-obs-04-bifrost rag.vector_search (12.09ms)
+│   │   └── ai-obs-bifrost rag.vector_search (12.09ms)
 │   └── rag.generate (32.03ms) ⚠️
 │       └── openai.chat (18.61ms) ⚠️
 │           └── ai-obs-bifrost /v1/chat/completions (2.95ms) ⚠️
 │               ├── plugin.prompts.prehook (1.33µs)
 │               └── plugin.prompts.posthook (0.83µs)
-├── ai-obs-04-bifrost POST /ask http send (59.46µs)
+├── ai-obs-bifrost POST /ask http send (59.46µs)
 └── POST /ask http send (10.46µs)
 ```
 
@@ -106,7 +106,7 @@ POST /ingest (1.04s)
 │   │           ├── key.selection (1.42µs)
 │   │           ├── embeddings text-embedding-3-small (977.68ms)
 │   │           └── plugin.prompts.posthook (1.38µs)
-│   └── ai-obs-04-bifrost rag.store (16.02ms)
+│   └── ai-obs-bifrost rag.store (16.02ms)
 ├── POST /ingest http send (28.38µs)
 └── POST /ingest http send (11.5µs)
 ```
@@ -287,7 +287,7 @@ make ask
 make random-traffic COUNT=10
 
 # 7. View in Grafana at http://localhost:3000 (admin/admin)
-# Explore → Tempo → service name = ai-obs-04-bifrost
+# Explore → Tempo → service name = ai-obs-bifrost
 # Explore → Prometheus → bifrost_upstream_requests_total
 # Dashboards → import dashboard.grafana.json
 ```
@@ -345,7 +345,7 @@ curl -s -X POST http://localhost:8004/ask \
 | `gen_ai_response_model` | `text-embedding-3-small`, `gpt-4o-mini` | Model |
 | `gen_ai_token_type` | `input`, `output` | Token direction |
 | `server_address` | `http://host.docker.internal:8000/v1/` | Confirms Bifrost routing |
-| `service_name` | `ai-obs-04-bifrost` | Service |
+| `service_name` | `ai-obs-bifrost` | Service |
 
 ### `gen_ai_client_operation_duration_seconds`
 
@@ -355,14 +355,14 @@ Same dimensions as `gen_ai_client_token_usage` minus `gen_ai_token_type`.
 
 | Dimension | Example | Purpose |
 |-----------|---------|---------|
-| `service_name` | `ai-obs-04-bifrost` | Service |
+| `service_name` | `ai-obs-bifrost` | Service |
 | `le` | `0.5`, `0.75`, `+Inf` | Similarity bucket |
 
 ### `rag_retrieve_count_total` / `rag_retrieve_empty_total`
 
 | Dimension | Example | Purpose |
 |-----------|---------|---------|
-| `service_name` | `ai-obs-04-bifrost` | Counter per service |
+| `service_name` | `ai-obs-bifrost` | Counter per service |
 
 ### `http_server_duration_milliseconds`
 

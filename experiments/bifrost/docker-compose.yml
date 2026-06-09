@@ -3,13 +3,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: ai-obs-01-otel
+    container_name: ai-obs-bifrost-app
     restart: unless-stopped
-    env_file: .env
+    env_file: ${ENV_FILE:-.env}
     ports:
-      - "8001:8001"
+      - "8004:8004"
     environment:
-      PORT: "8001"
+      PORT: "8004"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on: []

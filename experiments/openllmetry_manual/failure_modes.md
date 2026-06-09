@@ -1,4 +1,4 @@
-# Failure Modes & Personas — 03_openllmetry_manual
+# Failure Modes & Personas — openllmetry_manual
 
 ## Personas
 

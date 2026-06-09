@@ -1,4 +1,4 @@
-# Failure Modes & Personas — 02_openllmetry
+# Failure Modes & Personas — openllmetry
 
 ## Personas
 
@@ -6,7 +6,7 @@
 |---------|---------------------|----------------------------------|
 | Platform/SRE | Is the service up? Is it slow? | HTTP spans, latency histograms, error rates |
 | FinOps | How much are we spending on LLMs? | `gen_ai.client.token.usage` — track cost per model |
-| ML/AI Engineer | Is the RAG pipeline working correctly? Are retrievals relevant? | Embed and generate timing only. Retrieval step (pgvector query, similarity scores) is NOT visible — requires manual spans (see 01_otel) or custom metrics |
+| ML/AI Engineer | Is the RAG pipeline working correctly? Are retrievals relevant? | Embed and generate timing only. Retrieval step (pgvector query, similarity scores) is NOT visible — requires manual spans (see otel) or custom metrics |
 | Product Manager | How long do users wait for answers? | End-to-end `/ask` latency |
 | Security/Compliance | What prompts/data are being sent to LLMs? | OpenLLMetry captures prompt/completion content (can be disabled) |
 

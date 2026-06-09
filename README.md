@@ -4,13 +4,15 @@ Benchmarking AI observability using a minimal RAG application. Same app, differe
 
 ## Experiments
 
-| # | Experiment | What it demonstrates | README |
-|---|------------|---------------------|--------|
+Recommended reading order:
+
+| Order | Experiment | What it demonstrates | README |
+|-------|------------|---------------------|--------|
 | — | `base/` | Uninstrumented RAG app (source of truth) | [README](base/README.md) |
-| 01 | `experiments/01_otel` | Vanilla OTel: manual spans, metrics, logs | [README](experiments/01_otel/README.md) |
-| 02 | `experiments/02_openllmetry` | OpenLLMetry auto-instruments OpenAI SDK (tokens, model, prompts for free) | [README](experiments/02_openllmetry/README.md) |
-| 03 | `experiments/03_openllmetry_manual` | OpenLLMetry + manual spans (retrieval quality, per-user attribution) | [README](experiments/03_openllmetry_manual/README.md) |
-| 04 | `experiments/04_bifrost` | Bifrost AI gateway captures provider/model/token telemetry outside the app | [README](experiments/04_bifrost/README.md) |
+| 1 | `experiments/otel` | Vanilla OTel: manual spans, metrics, logs | [README](experiments/otel/README.md) |
+| 2 | `experiments/openllmetry` | OpenLLMetry auto-instruments OpenAI SDK (tokens, model, prompts for free) | [README](experiments/openllmetry/README.md) |
+| 3 | `experiments/openllmetry_manual` | OpenLLMetry + manual spans (retrieval quality, per-user attribution) | [README](experiments/openllmetry_manual/README.md) |
+| 4 | `experiments/bifrost` | Bifrost AI gateway captures provider/model/token telemetry outside the app | [README](experiments/bifrost/README.md) |
 
 ## Infrastructure
 

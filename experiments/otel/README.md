@@ -1,4 +1,4 @@
-# 01_otel — Vanilla OpenTelemetry
+# otel — Vanilla OpenTelemetry
 
 Instruments the RAG app with plain OpenTelemetry — manual spans, metrics, and logs. No LLM-specific auto-instrumentation.
 

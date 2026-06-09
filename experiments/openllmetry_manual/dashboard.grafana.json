@@ -27,7 +27,7 @@
         },
         "targets": [
           {
-            "expr": "sum(rate(gen_ai_client_token_usage_sum{service_name=\"ai-obs-03-openllmetry-manual\"}[1m])) by (gen_ai_operation_name)",
+            "expr": "sum(rate(gen_ai_client_token_usage_sum{service_name=\"ai-obs-openllmetry-manual\"}[1m])) by (gen_ai_operation_name)",
             "legendFormat": "{{gen_ai_operation_name}}"
           }
         ],
@@ -48,7 +48,7 @@
         },
         "targets": [
           {
-            "expr": "histogram_quantile(0.95, sum(rate(gen_ai_client_operation_duration_seconds_bucket{service_name=\"ai-obs-03-openllmetry-manual\"}[1m])) by (le, gen_ai_operation_name))",
+            "expr": "histogram_quantile(0.95, sum(rate(gen_ai_client_operation_duration_seconds_bucket{service_name=\"ai-obs-openllmetry-manual\"}[1m])) by (le, gen_ai_operation_name))",
             "legendFormat": "p95 {{gen_ai_operation_name}}"
           }
         ],
@@ -69,7 +69,7 @@
         },
         "targets": [
           {
-            "expr": "sum(rate(gen_ai_client_token_usage_sum{service_name=\"ai-obs-03-openllmetry-manual\"}[1m])) by (gen_ai_response_model)",
+            "expr": "sum(rate(gen_ai_client_token_usage_sum{service_name=\"ai-obs-openllmetry-manual\"}[1m])) by (gen_ai_response_model)",
             "legendFormat": "{{gen_ai_response_model}}"
           }
         ],
@@ -90,7 +90,7 @@
         },
         "targets": [
           {
-            "expr": "sum(gen_ai_client_generation_choices_choice_total{service_name=\"ai-obs-03-openllmetry-manual\"})",
+            "expr": "sum(gen_ai_client_generation_choices_choice_total{service_name=\"ai-obs-openllmetry-manual\"})",
             "legendFormat": "completions"
           }
         ],
@@ -111,7 +111,7 @@
         },
         "targets": [
           {
-            "expr": "sum(llm_openai_embeddings_vector_size_element_total{service_name=\"ai-obs-03-openllmetry-manual\"}) / 1536",
+            "expr": "sum(llm_openai_embeddings_vector_size_element_total{service_name=\"ai-obs-openllmetry-manual\"}) / 1536",
             "legendFormat": "embed calls"
           }
         ],
@@ -143,11 +143,11 @@
         },
         "targets": [
           {
-            "expr": "histogram_quantile(0.50, sum(rate(rag_retrieve_similarity_score_bucket{service_name=\"ai-obs-03-openllmetry-manual\"}[1m])) by (le))",
+            "expr": "histogram_quantile(0.50, sum(rate(rag_retrieve_similarity_score_bucket{service_name=\"ai-obs-openllmetry-manual\"}[1m])) by (le))",
             "legendFormat": "p50 similarity"
           },
           {
-            "expr": "histogram_quantile(0.95, sum(rate(rag_retrieve_similarity_score_bucket{service_name=\"ai-obs-03-openllmetry-manual\"}[1m])) by (le))",
+            "expr": "histogram_quantile(0.95, sum(rate(rag_retrieve_similarity_score_bucket{service_name=\"ai-obs-openllmetry-manual\"}[1m])) by (le))",
             "legendFormat": "p95 similarity"
           }
         ],
@@ -168,7 +168,7 @@
         },
         "targets": [
           {
-            "expr": "sum(rate(rag_retrieve_count_total{service_name=\"ai-obs-03-openllmetry-manual\"}[1m]))",
+            "expr": "sum(rate(rag_retrieve_count_total{service_name=\"ai-obs-openllmetry-manual\"}[1m]))",
             "legendFormat": "retrievals/s"
           }
         ],
@@ -189,7 +189,7 @@
         },
         "targets": [
           {
-            "expr": "sum(rate(rag_retrieve_empty_total{service_name=\"ai-obs-03-openllmetry-manual\"}[1m]))",
+            "expr": "sum(rate(rag_retrieve_empty_total{service_name=\"ai-obs-openllmetry-manual\"}[1m]))",
             "legendFormat": "empty retrievals/s"
           }
         ],
@@ -221,7 +221,7 @@
         },
         "targets": [
           {
-            "expr": "sum(rate(http_server_duration_milliseconds_count{service_name=\"ai-obs-03-openllmetry-manual\"}[1m])) by (http_target)",
+            "expr": "sum(rate(http_server_duration_milliseconds_count{service_name=\"ai-obs-openllmetry-manual\"}[1m])) by (http_target)",
             "legendFormat": "{{http_target}}"
           }
         ],
@@ -242,7 +242,7 @@
         },
         "targets": [
           {
-            "expr": "histogram_quantile(0.95, sum(rate(http_server_duration_milliseconds_bucket{service_name=\"ai-obs-03-openllmetry-manual\"}[1m])) by (le, http_target))",
+            "expr": "histogram_quantile(0.95, sum(rate(http_server_duration_milliseconds_bucket{service_name=\"ai-obs-openllmetry-manual\"}[1m])) by (le, http_target))",
             "legendFormat": "p95 {{http_target}}"
           }
         ],
@@ -263,7 +263,7 @@
         },
         "targets": [
           {
-            "expr": "http_server_active_requests{service_name=\"ai-obs-03-openllmetry-manual\"}",
+            "expr": "http_server_active_requests{service_name=\"ai-obs-openllmetry-manual\"}",
             "legendFormat": "{{http_method}} active"
           }
         ],
@@ -284,7 +284,7 @@
         },
         "targets": [
           {
-            "expr": "sum(rate(http_server_duration_milliseconds_count{service_name=\"ai-obs-03-openllmetry-manual\", http_status_code=~\"5..\"}[1m])) by (http_target)",
+            "expr": "sum(rate(http_server_duration_milliseconds_count{service_name=\"ai-obs-openllmetry-manual\", http_status_code=~\"5..\"}[1m])) by (http_target)",
             "legendFormat": "5xx {{http_target}}"
           }
         ],
@@ -305,7 +305,7 @@
         },
         "targets": [
           {
-            "expr": "sum(rate(http_server_request_size_bytes_sum{service_name=\"ai-obs-03-openllmetry-manual\"}[1m])) by (http_target) / sum(rate(http_server_request_size_bytes_count{service_name=\"ai-obs-03-openllmetry-manual\"}[1m])) by (http_target)",
+            "expr": "sum(rate(http_server_request_size_bytes_sum{service_name=\"ai-obs-openllmetry-manual\"}[1m])) by (http_target) / sum(rate(http_server_request_size_bytes_count{service_name=\"ai-obs-openllmetry-manual\"}[1m])) by (http_target)",
             "legendFormat": "avg {{http_target}}"
           }
         ],
@@ -326,7 +326,7 @@
         },
         "targets": [
           {
-            "expr": "sum(rate(http_server_response_size_bytes_sum{service_name=\"ai-obs-03-openllmetry-manual\"}[1m])) by (http_target) / sum(rate(http_server_response_size_bytes_count{service_name=\"ai-obs-03-openllmetry-manual\"}[1m])) by (http_target)",
+            "expr": "sum(rate(http_server_response_size_bytes_sum{service_name=\"ai-obs-openllmetry-manual\"}[1m])) by (http_target) / sum(rate(http_server_response_size_bytes_count{service_name=\"ai-obs-openllmetry-manual\"}[1m])) by (http_target)",
             "legendFormat": "avg {{http_target}}"
           }
         ],
@@ -337,12 +337,12 @@
     "schemaVersion": 39,
     "tags": [
       "ai-observability",
-      "03_openllmetry_manual",
+      "openllmetry_manual",
       "rag",
       "gen_ai"
     ],
     "timezone": "browser",
-    "title": "03_openllmetry_manual \u2014 Full RAG Observability",
+    "title": "openllmetry_manual \u2014 Full RAG Observability",
     "uid": "afo5btwcgqry8f",
     "version": 2
   },
