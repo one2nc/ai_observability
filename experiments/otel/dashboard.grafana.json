@@ -1,8 +1,8 @@
 {
   "dashboard": {
-    "title": "01_otel — FastAPI HTTP Metrics",
+    "title": "otel — FastAPI HTTP Metrics",
     "description": "Vanilla OTel: HTTP-level metrics from FastAPI auto-instrumentation. No LLM-specific metrics in this experiment.",
-    "tags": ["ai-observability", "01_otel", "fastapi"],
+    "tags": ["ai-observability", "otel", "fastapi"],
     "timezone": "browser",
     "panels": [
       {
@@ -12,7 +12,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
         "targets": [
           {
-            "expr": "sum(rate(http_server_duration_milliseconds_count{service_name=\"ai-obs-01-otel\"}[1m])) by (http_target)",
+            "expr": "sum(rate(http_server_duration_milliseconds_count{service_name=\"ai-obs-otel\"}[1m])) by (http_target)",
             "legendFormat": "{{http_target}}"
           }
         ]
@@ -24,7 +24,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
         "targets": [
           {
-            "expr": "histogram_quantile(0.95, sum(rate(http_server_duration_milliseconds_bucket{service_name=\"ai-obs-01-otel\"}[1m])) by (le, http_target))",
+            "expr": "histogram_quantile(0.95, sum(rate(http_server_duration_milliseconds_bucket{service_name=\"ai-obs-otel\"}[1m])) by (le, http_target))",
             "legendFormat": "p95 {{http_target}}"
           }
         ]
@@ -36,7 +36,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
         "targets": [
           {
-            "expr": "histogram_quantile(0.50, sum(rate(http_server_duration_milliseconds_bucket{service_name=\"ai-obs-01-otel\"}[1m])) by (le, http_target))",
+            "expr": "histogram_quantile(0.50, sum(rate(http_server_duration_milliseconds_bucket{service_name=\"ai-obs-otel\"}[1m])) by (le, http_target))",
             "legendFormat": "p50 {{http_target}}"
           }
         ]
@@ -48,7 +48,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
         "targets": [
           {
-            "expr": "sum(rate(http_server_duration_milliseconds_count{service_name=\"ai-obs-01-otel\", http_status_code=~\"5..\"}[1m])) by (http_target)",
+            "expr": "sum(rate(http_server_duration_milliseconds_count{service_name=\"ai-obs-otel\", http_status_code=~\"5..\"}[1m])) by (http_target)",
             "legendFormat": "5xx {{http_target}}"
           }
         ]
@@ -60,7 +60,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
         "targets": [
           {
-            "expr": "http_server_active_requests{service_name=\"ai-obs-01-otel\"}",
+            "expr": "http_server_active_requests{service_name=\"ai-obs-otel\"}",
             "legendFormat": "{{http_method}} active"
           }
         ]
@@ -72,7 +72,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
         "targets": [
           {
-            "expr": "sum(rate(http_server_response_size_bytes_sum{service_name=\"ai-obs-01-otel\"}[1m])) by (http_target) / sum(rate(http_server_response_size_bytes_count{service_name=\"ai-obs-01-otel\"}[1m])) by (http_target)",
+            "expr": "sum(rate(http_server_response_size_bytes_sum{service_name=\"ai-obs-otel\"}[1m])) by (http_target) / sum(rate(http_server_response_size_bytes_count{service_name=\"ai-obs-otel\"}[1m])) by (http_target)",
             "legendFormat": "avg {{http_target}}"
           }
         ]

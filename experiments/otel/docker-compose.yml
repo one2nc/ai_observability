@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: ai-obs-02-openllmetry
+    container_name: ai-obs-otel
     restart: unless-stopped
     env_file: .env
     ports:
@@ -12,3 +12,4 @@ services:
       PORT: "8001"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on: []

@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: ai-obs-03-openllmetry-manual
+    container_name: ai-obs-openllmetry-manual
     restart: unless-stopped
     env_file: .env
     ports:

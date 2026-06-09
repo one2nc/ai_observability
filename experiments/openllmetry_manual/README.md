@@ -1,6 +1,6 @@
-# 03_openllmetry_manual — OpenLLMetry + Manual Spans
+# openllmetry_manual — OpenLLMetry + Manual Spans
 
-Builds on `02_openllmetry` by adding manual spans to close the instrumentable gaps.
+Builds on `openllmetry` by adding manual spans to close the instrumentable gaps.
 
 ## Flow
 
@@ -19,9 +19,9 @@ graph LR
     style Traceloop stroke-dasharray: 5 5
 ```
 
-## What this adds over 02_openllmetry
+## What this adds over openllmetry
 
-| What | 02_openllmetry | 03_openllmetry_manual |
+| What | openllmetry | openllmetry_manual |
 |------|----------------|----------------------|
 | LLM call spans (tokens, model) | ✅ auto | ✅ auto |
 | Embedding call spans | ✅ auto | ✅ auto |
@@ -226,7 +226,7 @@ make ask
 | `gen_ai.token.type` | `input`, `output` | Separate input vs output tokens |
 | `server.address` | `https://openrouter.ai/api/v1/` | Which endpoint was called |
 | `stream` | `false` | Streaming vs non-streaming |
-| `service.name` | `ai-obs-03-openllmetry-manual` | Which service emitted it |
+| `service.name` | `ai-obs-openllmetry-manual` | Which service emitted it |
 
 ### `gen_ai.client.operation.duration`
 

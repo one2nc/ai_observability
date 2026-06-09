@@ -1,4 +1,4 @@
-# 02_openllmetry — Traceloop / OpenLLMetry
+# openllmetry — Traceloop / OpenLLMetry
 
 Instruments the RAG app with OpenLLMetry (Traceloop SDK) which auto-instruments OpenAI SDK calls.
 
@@ -19,9 +19,9 @@ graph LR
     style Traceloop stroke-dasharray: 5 5
 ```
 
-## What this captures vs 01_otel
+## What this captures vs otel
 
-| What | 01_otel | 02_openllmetry |
+| What | otel | openllmetry |
 |------|---------|----------------|
 | HTTP request spans | ✅ (FastAPI auto) | ✅ (FastAPI auto) |
 | Custom RAG pipeline spans | ✅ (manual) | ❌ (not added — see note) |
@@ -185,7 +185,7 @@ make ask
 | `gen_ai.token.type` | `input`, `output` | Separate input vs output tokens |
 | `server.address` | `https://openrouter.ai/api/v1/` | Which endpoint was called |
 | `stream` | `false` | Streaming vs non-streaming |
-| `service.name` | `ai-obs-02-openllmetry` | Which service emitted it |
+| `service.name` | `ai-obs-openllmetry` | Which service emitted it |
 
 ### `gen_ai.client.operation.duration`
 

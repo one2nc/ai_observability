@@ -59,7 +59,7 @@ cat > data/config.json <<EOF
       "enabled": true,
       "name": "otel",
       "config": {
-        "service_name": "ai-obs-bifrost",
+        "service_name": "ai-obs-bifrost-gateway",
         "collector_url": "env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
         "trace_type": "genai_extension",
         "protocol": "http",

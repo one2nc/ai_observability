@@ -1,4 +1,4 @@
-"""FastAPI RAG demo app — instrumented with OpenLLMetry (Traceloop)."""
+"""FastAPI RAG demo app — instrumented with vanilla OpenTelemetry."""
 
 import logging
 import os
@@ -21,13 +21,12 @@ logging.basicConfig(
     stream=sys.stderr,
 )
 
-app = FastAPI(title="AI Observability Demo — 03_openllmetry_manual", version="0.1.0")
+app = FastAPI(title="AI Observability Demo — otel", version="0.1.0")
 init_instrumentation(app)
 
 
 class AskRequest(BaseModel):
     query: str
-    user_id: str = "anonymous"
 
 
 class AskResponse(BaseModel):
@@ -56,7 +55,7 @@ async def ingest(file: UploadFile = File(...)):
 
 @app.post("/ask", response_model=AskResponse)
 def ask_endpoint(req: AskRequest):
-    result = rag.ask(req.query, user_id=req.user_id)
+    result = rag.ask(req.query)
     return AskResponse(query=req.query, answer=result["answer"], sources=result["sources"])
 
 

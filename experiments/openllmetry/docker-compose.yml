@@ -3,13 +3,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: ai-obs-04-bifrost
+    container_name: ai-obs-openllmetry
     restart: unless-stopped
-    env_file: ${ENV_FILE:-.env}
+    env_file: .env
     ports:
-      - "8004:8004"
+      - "8001:8001"
     environment:
-      PORT: "8004"
+      PORT: "8001"
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    depends_on: []

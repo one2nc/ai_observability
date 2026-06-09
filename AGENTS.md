@@ -18,9 +18,10 @@ infra/                             # Shared infrastructure
 └── .vendor/                       # Cloned repos (gitignored)
 
 experiments/
-├── 01_otel/                       # Vanilla OTel manual spans
-├── 02_openllmetry/                # Traceloop auto-instrumentation
-├── 03_openllmetry_manual/         # Auto + manual spans + custom metrics
+├── otel/                          # Vanilla OTel manual spans
+├── openllmetry/                   # Traceloop auto-instrumentation
+├── openllmetry_manual/            # Auto + manual spans + custom metrics
+├── bifrost/                       # Bifrost AI gateway telemetry
 └── ...                            # Add more experiments here
 ```
 
@@ -36,7 +37,7 @@ Each experiment is a standalone, self-contained copy of the base app with instru
 - `pyproject.toml` — Dependencies
 - `.env.example` — Required env vars (no defaults for critical config)
 - `Makefile` — `make up`, `make down`, `make ingest`, `make ask`
-- `README.md` — Must include (use `experiments/02_openllmetry/README.md` as template):
+- `README.md` — Must include (use `experiments/openllmetry/README.md` as template):
   - Flow diagram (mermaid)
   - Example traces with span breakdown table (columns: #, Span, Parent, Duration, Source, What it tells you, Sample attributes)
   - Span attributes (auto + manual) with examples
