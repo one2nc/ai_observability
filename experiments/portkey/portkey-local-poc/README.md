@@ -12,18 +12,18 @@ flowchart TD
 
     subgraph GW["🐳  Portkey Gateway  —  localhost:8787  (Docker)"]
         Router["Config Router"]
-        Feat["Fallback · Load Balance · Retry<br/>Request Timeout · SSE Streaming · Logging"]
+        Feat["Fallback · Load Balance · Retry<br/>Request Timeout · SSE Streaming"]
         Router --> Feat
     end
 
     Cloud["☁️  Portkey Cloud  (api.portkey.ai)<br/>← acts as LLM backend only"]
     LLM["LLM  (@test/gpt-4.1  ·  @test/gpt-4)"]
-    Logs["📁  ./logs/  (request logs on host)"]
+    UI["🖥️  Built-in UI  (localhost:8787/public/)"]
 
     App -->|"POST /v1/chat/completions<br/>x-portkey-api-key: local-test-key<br/>x-portkey-config: routing JSON"| Router
     Feat -->|"forwards with provider API key"| Cloud
     Cloud --> LLM
-    Feat -.->|"writes log entries"| Logs
+    Feat -.->|"request viewer"| UI
 ```
 
 ### Request flow
@@ -153,12 +153,12 @@ All 6 demos run automatically and print a final pass/fail summary. Expected outp
 
 `team_demo.py` is built for live presentations — it pauses before each demo so you can narrate what's about to happen, then run it on-screen.
 
-**Recommended terminal layout (2 panes):**
+**Recommended layout (terminal + browser):**
 
-| Pane | Command | Shows |
+| Window | What to open | Shows |
 |---|---|---|
-| 1 | `docker compose logs -f portkey` | Live gateway request logs |
-| 2 | `python3 team_demo.py` | Demo script with narration pauses |
+| Terminal | `python3 team_demo.py` | Demo script with narration pauses |
+| Browser | `http://localhost:8787/public/` | Live request viewer — see each request as it arrives |
 
 ```bash
 python3 team_demo.py
@@ -183,7 +183,7 @@ client = Portkey(base_url="http://localhost:8787/v1", api_key="local-test-key", 
 response = client.chat.completions.create(model="@test/gpt-4.1", messages=[...])
 ```
 
-**Shows:** Token usage, latency, and gateway proxy confirmed in logs.
+**Shows:** Token usage, latency, and request visible in the gateway UI at `localhost:8787/public/`.
 
 ---
 
@@ -235,7 +235,7 @@ config = json.dumps({
 })
 ```
 
-**Shows:** All 8 requests succeed; gateway logs confirm which model served each request.
+**Shows:** All 8 requests succeed; gateway UI (`localhost:8787/public/`) confirms which model served each request.
 
 ---
 
@@ -332,18 +332,22 @@ config = json.dumps({
 
 ## Observability
 
-### Live gateway logs
+### Built-in Gateway UI
 
-```bash
-# Stream all logs
-docker compose logs -f portkey
+Open **[http://localhost:8787/public/](http://localhost:8787/public/)** in your browser while the gateway is running.
 
-# Filter by feature
-docker compose logs portkey | grep -i fallback
-docker compose logs portkey | grep -i retry
-docker compose logs portkey | grep -i error
-docker compose logs portkey | grep model      # see which model served each request
-```
+Every request passing through the gateway is visible here in real time:
+
+| What you see | Details |
+|---|---|
+| Request list | Timestamp, model, status, latency for every call |
+| Fallback trace | Failed primary attempt + successful fallback under the same trace |
+| Load balance | Which model (`@test/gpt-4` vs `@test/gpt-4.1`) served each of the 8 requests |
+| Retry trace | Retry attempts with exponential backoff timing |
+| Timeout | Aborted request with `408` status and sub-15ms wall time |
+| Streaming | SSE requests marked with `stream: true` |
+
+> **Note:** `docker compose logs portkey` only shows gateway startup output — request traces are not logged to stdout or local files in OSS v1.15.2+. Use the built-in UI for request visibility.
 
 ---
 
@@ -398,7 +402,7 @@ The self-hosted Portkey OSS gateway natively supports routing, retry, fallback, 
 |---|---|
 | **Guardrails** (PII, prompt injection blocking) | ❌ Requires paid Portkey Cloud plan — `portkey.*` checks return 403 on free tier |
 | **Semantic cache** | ❌ Cache state managed at Portkey Cloud level — not available in the local OSS gateway |
-| **Analytics dashboard** | ❌ Cloud-only UI at `app.portkey.ai` |
+| **Analytics dashboard** | ⚠️ Basic request viewer at `localhost:8787/public/` — full analytics at `app.portkey.ai` (Cloud) |
 | **Virtual key store** | ❌ Cloud-only; keys embedded per-request in config JSON in self-hosted mode |
 
 ---
@@ -413,5 +417,5 @@ The self-hosted Portkey OSS gateway natively supports routing, retry, fallback, 
 | Team presentation | `python3 team_demo.py` |
 | Run one script | `python3 python-sdk/01_basic_completion.py` |
 | Run all scripts | `python3 python-sdk/run_all.py` |
-| Live gateway logs | `docker compose logs -f portkey` |
+| Gateway UI (request viewer) | `http://localhost:8787/public/` |
 | Stop stack | `docker compose down` |

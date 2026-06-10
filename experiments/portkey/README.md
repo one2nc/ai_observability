@@ -98,7 +98,7 @@ latency:            1218ms
 
 10 requests distributed across two models by weight. Traffic split is a config JSON change — no code redeploy needed.
 
-**Gateway log sample (`docker compose logs portkey | grep model`):**
+**Gateway UI sample (`http://localhost:8787/public/` → request list):**
 
 ```
 request 1  → model=@test/gpt-4.1   (weight 80)
@@ -211,7 +211,7 @@ cache_st = resp.get_headers().get("cache-status", "?")   # "HIT" or "MISS"
 
 ## Dashboard
 
-Portkey Cloud dashboard at `https://app.portkey.ai`. Self-hosted OSS: gateway logs to `stdout` and `./logs/`.
+Portkey Cloud dashboard at `https://app.portkey.ai`. Self-hosted OSS: built-in request viewer at `http://localhost:8787/public/` (OSS v1.15.2+ does not write request logs to stdout or local files).
 
 ### Portkey Cloud — Logs view
 
@@ -293,16 +293,11 @@ python3 python-sdk/run_all.py
 # 7. Team presentation mode (pauses before each demo)
 python3 team_demo.py
 
-# 8. View live gateway logs
-docker compose logs -f portkey
-docker compose logs portkey | grep -i cache
-docker compose logs portkey | grep -i fallback
-docker compose logs portkey | grep -i model
+# 8. View requests in built-in gateway UI
+# Open in browser: http://localhost:8787/public/
+# Shows every request — model, status, latency, fallback chain, retry trace
 
-# 9. Gateway log files (written to ./logs/ on the host)
-ls -lh portkey-local-poc/logs/
-
-# 10. Stop
+# 9. Stop
 docker compose down
 ```
 
