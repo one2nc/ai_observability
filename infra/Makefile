@@ -1,10 +1,8 @@
 .PHONY: up down sink-up sink-down ai-gateway-up ai-gateway-down status clean config check-signoz-traces check-signoz-logs check-signoz-metrics check-grafana check-bifrost
 
-INFRA_CONFIG ?= .enc
-GENERATED_CONFIG := .enc.mk
+INFRA_CONFIG ?= .env
 
-$(shell ./load-config.sh $(INFRA_CONFIG) > $(GENERATED_CONFIG))
-include $(GENERATED_CONFIG)
+include $(INFRA_CONFIG)
 
 SINK ?= signoz
 AI_GATEWAY ?= none

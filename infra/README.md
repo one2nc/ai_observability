@@ -14,15 +14,14 @@ graph LR
     App -->|SQL :5432| PG[pgvector]
 ```
 
-Apps always send telemetry to the OTel gateway. The monitoring sink and optional AI gateway are selected from `.enc`.
+Apps always send telemetry to the OTel gateway. The monitoring sink and optional AI gateway are selected from `.env`.
 
 ## Structure
 
 ```
 infra/
 ├── Makefile
-├── .enc.example
-├── load-config.sh
+├── .env.example
 ├── bifrost/
 │   ├── docker-compose.yml
 │   ├── generate-config.sh
@@ -50,8 +49,8 @@ infra/
 ## Usage
 
 ```bash
-cp .enc.example .enc
-# edit .enc
+cp .env.example .env
+# edit .env
 make config                # print resolved non-secret config
 make up                    # starts configured gateway, sink, Postgres, OTel gateway
 make down
@@ -59,16 +58,18 @@ make clean                 # removes volumes
 make status
 ```
 
-`.enc` accepts either `key: value` or `KEY=value` syntax:
+`.env` uses standard `KEY=value` syntax:
 
 ```text
-gateway: true
-sink: grafana
-bifrost_provider: openai
-bifrost_api_key: sk-...
+SINK=grafana
+AI_GATEWAY=bifrost
+BIFROST_PROVIDER=openai
+BIFROST_API_KEY=sk-...
+BIFROST_PORT=8000
+OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4418
 ```
 
-`sink` selects both the sink Compose stack and the gateway routing config. `gateway: true` starts Bifrost before Postgres and the OTel gateway. Command-line overrides still work for one-off runs, for example `make up SINK=signoz`.
+`SINK` selects both the sink Compose stack and the gateway routing config. `AI_GATEWAY=bifrost` starts Bifrost before Postgres and the OTel gateway. Command-line overrides still work for one-off runs, for example `make up SINK=signoz`.
 
 ## Ports
 

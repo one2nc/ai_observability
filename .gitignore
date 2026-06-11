@@ -31,8 +31,7 @@ ENV/
 
 # Environment variables
 .env
-infra/.enc
-infra/.enc.mk
+infra/.env
 
 # IDE
 .vscode/
