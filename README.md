@@ -22,7 +22,7 @@ Quick links:
 
 | Topic | Link |
 |-------|------|
-| Central `.enc` config | [infra usage](infra/README.md#usage) |
+| Central `.env` config | [infra usage](infra/README.md#usage) |
 | Grafana/Loki/Tempo/Prometheus stack | [Grafana stack](infra/README.md#grafana-stack) |
 | Bifrost AI gateway | [Bifrost gateway](infra/README.md#bifrost-gateway) |
 | Generate Bifrost virtual key | [Virtual key instructions](infra/README.md#create-a-bifrost-virtual-key) |
