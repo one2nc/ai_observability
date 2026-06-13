@@ -22,19 +22,16 @@ ask:
 	curl -s -X POST http://localhost:$(PORT)/ask -H "Content-Type: application/json" -d '{"query": "What does the kube-scheduler do?", "user_id": "anonymous", "chat_model": "openrouter/gpt-4o-mini"}' | python3 -m json.tool
 
 random-ingest:
-	PORT=$(PORT) ./scripts/random_rag.sh ingest 1
+	PORT=$(PORT) python3 ./scripts/random_rag.py ingest --count 1
 
 random-ask:
-	PORT=$(PORT) ./scripts/random_rag.sh ask 1
+	PORT=$(PORT) python3 ./scripts/random_rag.py ask --count 1
 
 random-traffic:
-	PORT=$(PORT) ./scripts/random_rag.sh traffic $(COUNT)
+	PORT=$(PORT) python3 ./scripts/random_rag.py traffic --count $(COUNT)
 
 health:
 	curl -s http://localhost:$(PORT)/health | python3 -m json.tool
-
-logs:
-	docker compose logs -f
 
 dashboard:
 	curl -s -X POST http://localhost:3000/api/dashboards/db -H "Content-Type: application/json" -u admin:admin -d @dashboard.grafana.json | python3 -m json.tool

@@ -1,0 +1,11 @@
+# Sample user IDs for random_rag.py traffic generation.
+# Add or comment out users as needed.
+
+- anonymous
+- saurabh
+- platform-oncall
+- payments-sre
+- ml-observer
+- product-analyst
+- incident-commander
+- qa-reviewer
