@@ -261,15 +261,19 @@ A Grafana dashboard is included in `dashboard.grafana.json`. It covers four metr
 
 ## Usage
 
+> **Note:** The Bifrost virtual key is stored in the gateway's SQLite DB (`infra/bifrost/data/config.db`).
+> If the gateway container is recreated (e.g. after `make clean` or `docker rm`), the virtual key is lost
+> and you must regenerate it via the UI at http://localhost:8800 → Virtual Keys → Create.
+> There is no API to automate this in Bifrost v1.5.7.
+
 ```bash
 # 1. Start shared infra with Bifrost enabled
 cd ../../infra
-# Configure .enc: gateway=true, sink=grafana, bifrost_api_key=...
-make up
+make up AI_GATEWAY=bifrost
 
 # 2. Create Bifrost virtual key
-# Open http://localhost:8000 → Virtual Keys → Create
-# Allow models: openai/text-embedding-3-small, openrouter/gpt-4o-mini
+# Open http://localhost:8800 → Virtual Keys → Create
+# Allow models: openrouter/text-embedding-3-small, openrouter/gpt-4o-mini (or "*")
 # Copy the key
 
 # 3. Configure experiment
@@ -284,6 +288,8 @@ make ingest
 make ask
 
 # 6. Generate varied traffic
+cp experiment_data/sample_chat_models.yaml.example experiment_data/sample_chat_models.yaml
+# Uncomment the models you want to use
 make random-traffic COUNT=10
 
 # 7. View in Grafana at http://localhost:3000 (admin/admin)
