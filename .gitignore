@@ -32,6 +32,7 @@ ENV/
 # Environment variables
 .env
 infra/.env
+experiments/*/experiment_data/sample_chat_models.yaml
 
 # IDE
 .vscode/
