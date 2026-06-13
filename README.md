@@ -2,6 +2,40 @@
 
 Benchmarking AI observability using a minimal RAG application. Same app, different instrumentation per experiment — compare what each approach captures.
 
+## Architecture
+
+```mermaid
+graph LR
+    User --> experiments
+
+    subgraph experiments["experiments/"]
+        direction TB
+        otel --- openllmetry --- openllmetry_manual --- bifrost --- portkey --- more_exp[...]
+    end
+
+    subgraph gateways["AI Gateways"]
+        direction TB
+        none_gw[none] --- bifrost_gw[bifrost] --- portkey_gw[portkey] --- more_gw[...]
+    end
+
+    subgraph sinks["Sinks"]
+        direction TB
+        subgraph grafana_stack["Grafana stack"]
+            grafana[Grafana] --- prometheus[Prometheus] --- loki[Loki] --- tempo[Tempo]
+        end
+        grafana_stack --- signoz[SigNoz] --- more_sink[...]
+    end
+
+    experiments --> gateways
+    experiments -->|OTLP| collector[OTel Collector Gateway]
+    gateways -->|OTLP| collector
+    collector --> sinks
+
+    linkStyle 1,2,3,4,5,6,7,8,9,10,11,12,13 stroke:none
+```
+
+Each box is an independent silo. You can add a new instrumentation library, a new gateway, or a new sink without touching the others.
+
 ## Experiments
 
 Recommended reading order:
