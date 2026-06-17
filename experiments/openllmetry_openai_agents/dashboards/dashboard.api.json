@@ -1,0 +1,156 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "openllmetry-openai-agents-gap",
+    "title": "OpenLLMetry - OpenAI Agents Metrics Gap",
+    "description": "Same six-panel layout as OpenLIT. HTTP should populate; agent workflow and tool panels are expected to be empty for OpenLLMetry 0.61.0.",
+    "schemaVersion": 39,
+    "version": 1,
+    "refresh": "10s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "type": "timeseries",
+        "title": "Agent Workflow Duration p95",
+        "description": "Expected no data for OpenLLMetry 0.61.0: agent workflow duration metrics are not recorded.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 0
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "histogram_quantile(0.95, sum(increase(gen_ai_client_operation_duration_seconds_bucket{service_name=\"ai-obs-openllmetry-openai-agents\",gen_ai_operation_name=~\"invoke_workflow|invoke_agent\"}[$__range])) by (le, gen_ai_operation_name))",
+            "legendFormat": "{{gen_ai_operation_name}}"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "type": "timeseries",
+        "title": "Tool Execution Duration p95",
+        "description": "Expected no data for OpenLLMetry 0.61.0: execute_tool duration metrics are not recorded.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 0
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "histogram_quantile(0.95, sum(increase(gen_ai_client_operation_duration_seconds_bucket{service_name=\"ai-obs-openllmetry-openai-agents\",gen_ai_operation_name=\"execute_tool\"}[$__range])) by (le))",
+            "legendFormat": "tools"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "type": "timeseries",
+        "title": "Model Call Duration p95",
+        "description": "May populate when the underlying OpenAI SDK chat instrumentation records model-call metrics; this is not the agent/workflow/tool gap.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 8
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "histogram_quantile(0.95, sum(increase(gen_ai_client_operation_duration_seconds_bucket{service_name=\"ai-obs-openllmetry-openai-agents\",gen_ai_operation_name=\"chat\"}[$__range])) by (le, gen_ai_request_model))",
+            "legendFormat": "{{gen_ai_request_model}}"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "type": "timeseries",
+        "title": "Token Usage",
+        "description": "May populate when underlying OpenAI SDK chat instrumentation records token metrics; direct Responses mode can still be trace-only.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 8
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "sum(increase(gen_ai_client_token_usage_sum{service_name=\"ai-obs-openllmetry-openai-agents\"}[$__range])) by (gen_ai_token_type, gen_ai_request_model)",
+            "legendFormat": "{{gen_ai_request_model}} {{gen_ai_token_type}}"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "type": "timeseries",
+        "title": "HTTP Requests",
+        "description": "Control signal: if this populates while agent/tool panels are empty, the metrics pipeline is working and the gap is instrumentation-level.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 16
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "sum(increase(http_server_duration_milliseconds_count{service_name=\"ai-obs-openllmetry-openai-agents\",http_target=\"/ask\"}[$__range])) by (http_status_code)",
+            "legendFormat": "{{http_status_code}}"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "type": "timeseries",
+        "title": "HTTP Request Duration p95",
+        "description": "User-visible end-to-end request latency from FastAPI instrumentation; expected to populate.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 16
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "histogram_quantile(0.95, sum(increase(http_server_duration_milliseconds_bucket{service_name=\"ai-obs-openllmetry-openai-agents\",http_target=\"/ask\"}[$__range])) by (le))",
+            "legendFormat": "POST /ask"
+          }
+        ]
+      }
+    ]
+  },
+  "overwrite": true
+}
