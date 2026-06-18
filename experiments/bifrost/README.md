@@ -235,29 +235,7 @@ A Grafana dashboard is included in `dashboard.grafana.json`. It covers four metr
 
 ## Failure modes
 
-| # | Failure mode | Why? | How? | Where? | What? |
-|---|---|---|---|---|---|
-| 1 | Invalid Bifrost virtual key | Prevent unauthorized access | Alert on 401 from gateway; Gateway Success % drops below 100 | Bifrost → Gateway Success % | `bifrost_success_requests_total` / `bifrost_upstream_requests_total` < 100% |
-| 2 | Invalid provider API token | Detect provider auth failure | Gateway Success % drops; Bifrost traces show provider 401/403 | Bifrost → Gateway Success % + trace explorer | `http.response.status_code=401` on Bifrost spans |
-| 3 | Provider timeout or 5xx | Avoid user-facing errors, trigger failover | Bifrost Upstream Latency spikes + Gateway Success % drops | Bifrost → Upstream Latency + Gateway Success % | `bifrost_upstream_latency_seconds` p50 spikes, success % < 100 |
-| 4 | Wrong/blocked model name | Prevent silent routing failures | Gateway Success % drops; trace shows `model_blocked` | Bifrost → Gateway Success % + trace explorer | Virtual key doesn't allow requested model |
-| 5 | Token budget blown | Control costs before bill shock | Bifrost Cost Rate exceeds threshold | Bifrost → Bifrost Cost Rate | `sum(rate(bifrost_cost_USD_total[1m]))` > budget |
-| 6 | Provider cost runaway | Catch runaway loops or expensive models | Bifrost Tokens rate growing faster than Upstream Requests rate | Bifrost → Bifrost Tokens vs Bifrost Upstream Requests | Token/request ratio increasing |
-| 7 | LLM provider slow | Identify latency source (gateway vs provider) | Compare Bifrost Upstream Latency with OpenLLMetry Operation Duration | Bifrost → Upstream Latency vs OpenLLMetry → Operation Duration | If both high = provider slow; if only OpenLLMetry high = gateway overhead |
-| 8 | Gateway retry storms | Detect provider instability causing retries | Bifrost Retries p95 increases or retry sample rate spikes | Bifrost → Bifrost Retries | `bifrost_request_retries` histogram non-zero |
-| 9 | Model selection driving cost | Identify which model is most expensive | Bifrost Cost Rate by model shows outlier | Bifrost → Bifrost Cost Rate | `bifrost_cost_USD_total` by model label — screenshot shows per-model cost breakdown |
-| 10 | Token-heavy prompts (RAG context too large) | Optimize cost by reducing context | OpenLLMetry Token Usage Distribution p95 shows input tokens growing | OpenLLMetry → Token Usage Distribution | p95 input tokens per call increasing over time |
-| 11 | App is slow | Identify if latency is app-side or LLM-side | Compare Request Duration p95 with OpenLLMetry Operation Duration | FastAPI → Request Duration p95 vs OpenLLMetry → Operation Duration | Screenshot: `/ask` p95 at 2-10s, `gpt-5` at ~8s — model choice explains latency |
-| 12 | App errors (5xx) | Detect crashes, unhandled exceptions | Error Rate (5xx) panel shows non-zero | FastAPI → Error Rate (5xx) | Screenshot shows "No data" = zero errors. Non-zero = investigate traces. |
-| 13 | App saturation | Prevent request queuing | Active Requests stays high | FastAPI → Active Requests | Screenshot shows max 1 — no saturation. High values = scale up. |
-| 14 | Database connection failure | Avoid silent retrieval failures | `rag.ask` span errors before LLM call; retrieval count drops | Manual spans + Manual → Retrieval Count Rate | Retrieval count drops to 0 while request rate stays high |
-| 15 | Bad retrieval (irrelevant docs) | Prevent poor answers | Retrieval Similarity p50 drops | Manual → Retrieval Similarity (p50/p95) | Screenshot shows stable p50 ~5. Dropping = degradation. |
-| 16 | Empty retrievals | Detect missing/bad ingestion | `rag_retrieve_empty_total` rate > 0 | Manual metrics (not on dashboard — add alert) | `rag_retrieve_empty_total` counter increasing |
-| 17 | Per-user abuse | Identify who is overusing | Filter traces by `user.id`; token rate per user | Trace explorer | `user.id` on `rag.ask` spans — correlate with Bifrost token metrics |
-| | **Not detectable (needs eval layer)** | | | | |
-| 18 | Model degradation | Catch quality regressions | — | — | Gateway sees tokens and latency, not correctness |
-| 19 | Hallucination | Prevent incorrect answers | — | — | Needs eval or human review |
-| 20 | Bad chunking | Detect structural retrieval issues | — | — | Similarity scores may look fine but chunks may be wrong granularity |
+See [failure_modes.md](failure_modes.md).
 
 ## Usage
 

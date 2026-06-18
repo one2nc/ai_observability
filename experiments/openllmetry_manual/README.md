@@ -174,24 +174,7 @@ POST /ingest (1.47s)
 
 ## Failure modes
 
-| # | Failure mode | Why? | How? | Where? | What? |
-|---|---|---|---|---|---|
-| 1 | LLM provider down/slow | Avoid timeouts, trigger failover | Alert when p95 exceeds threshold | OpenLLMetry → LLM Call Duration (p95) | `gen_ai.client.operation.duration` |
-| 2 | Embedding API failure | Prevent silent search degradation | Filter traces by error status | Trace explorer | `openai.embeddings` span error |
-| 3 | Token budget blown | Control costs before bill shock | Alert when token rate exceeds budget | OpenLLMetry → Token Usage Rate | `gen_ai.client.token.usage` |
-| 4 | Prompt injection / abuse | Detect misuse, identify abuser | Token spike → identify user via `user.id` | OpenLLMetry → Token Usage Rate + Trace explorer | `gen_ai.client.token.usage` + `user.id` |
-| 5 | Cost runaway | Catch runaway loops | Token rate growing faster than request rate | OpenLLMetry → Token Usage Rate vs FastAPI → Request Rate | `gen_ai.client.token.usage` vs `http.server.duration.count` |
-| 6 | App is slow | Identify bottleneck step | Compare request p95 with LLM duration | FastAPI → Request Duration p95 vs OpenLLMetry → LLM Call Duration | `http.server.duration` vs `gen_ai.client.operation.duration` |
-| 7 | App errors (5xx) | Detect crashes | Alert when 5xx rate > 0 | FastAPI → Error Rate (5xx) | `http.server.duration{status=5xx}` |
-| 8 | App saturation | Prevent queuing | Alert when active requests stays high | FastAPI → Active Requests | `http.server.active_requests` |
-| 9 | Database connection failure | Avoid silent retrieval failures | Span errors before `rag.retrieve` | Trace explorer | `rag.ask` span error |
-| 10 | Bad retrieval (irrelevant docs) | Prevent poor answers | Alert when p50 similarity drops | Manual → Retrieval Similarity (p50/p95) | `rag_retrieve_similarity_score` |
-| 11 | Knowledge base gaps | Detect missing documents | Alert when empty retrievals rise | Manual → Empty Retrievals | `rag_retrieve_empty` |
-| 12 | Per-user abuse | Identify who is abusing | Group traces by `user.id` | Trace explorer | `user.id` on `rag.ask` span |
-| | **Not detectable (needs eval layer)** | | | | |
-| 13 | Model degradation | Catch quality regressions | — | — | Needs eval layer |
-| 14 | Hallucination | Prevent incorrect answers | — | — | Needs eval layer |
-| 15 | Bad chunking | Fix chunk boundaries | — | — | Needs retrieval eval |
+See [failure_modes.md](failure_modes.md).
 
 ## Usage
 

@@ -393,6 +393,23 @@
         ],
         "title": "Error Rate (5xx)",
         "type": "timeseries"
+      },
+      {
+        "description": "Rate of retrievals returning zero results.",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 60
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(rag_retrieve_empty_total{service_name=\"ai-obs-bifrost\"}[1m]))",
+            "legendFormat": "empty retrievals/s"
+          }
+        ],
+        "title": "Empty Retrieval Rate",
+        "type": "timeseries"
       }
     ],
     "schemaVersion": 39,

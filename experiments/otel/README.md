@@ -90,20 +90,7 @@ POST /ingest (3.38s)
 
 ## Failure modes
 
-| # | Failure mode | Why? | How? | Where? | What? |
-|---|---|---|---|---|---|
-| 1 | App is slow | Identify which RAG step is the bottleneck | Check which span is longest in trace | Trace explorer | `rag.embed` / `rag.generate` span durations |
-| 2 | Database down | Avoid silent retrieval failures | `rag.vector_search` span errors | Trace explorer | `rag.vector_search` span with error status |
-| 3 | Embedding API down | Detect upstream failures | `rag.embed` span errors | Trace explorer | `rag.embed` span with error status |
-| 4 | High request latency | SLA monitoring | Alert on p95 exceeding threshold | FastAPI → Request Duration p95 | `http.server.duration` metric |
-| 5 | App errors (5xx) | Detect crashes, unhandled exceptions | Alert when 5xx rate > 0 | FastAPI → Error Rate (5xx) | `http.server.duration{http_status_code=~"5.."}` |
-| 6 | App saturation | Prevent request queuing, scale up | Alert when active requests stays high | FastAPI → Active Requests | `http.server.active_requests` |
-| | **Not detectable (needs LLM-aware instrumentation)** | | | | |
-| 7 | Token budget blown | — | — | — | No token metrics |
-| 8 | LLM provider slow vs app slow | — | — | — | No `openai.chat` span to isolate LLM time |
-| 9 | Bad retrieval quality | — | — | — | No similarity scores |
-| 10 | Per-user abuse | — | — | — | No `user.id` |
-| 11 | Cost runaway | — | — | — | No token/cost metrics |
+See [failure_modes.md](failure_modes.md).
 
 ## Usage
 

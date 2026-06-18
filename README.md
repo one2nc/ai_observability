@@ -62,6 +62,16 @@ Quick links:
 | Generate Bifrost virtual key | [Virtual key instructions](infra/README.md#create-a-bifrost-virtual-key) |
 | Bifrost-specific notes | [infra/bifrost README](infra/bifrost/README.md) |
 
+## Personas
+
+| Persona | What they care about |
+|---------|---------------------|
+| Platform/SRE | Is the service up? Is it slow? |
+| FinOps | How much are we spending on LLMs? Per user? Per model? |
+| ML/AI Engineer | Is the RAG pipeline working correctly? Are retrievals relevant? |
+| Product Manager | How long do users wait for answers? |
+| Security/Compliance | What data is being sent to LLMs? |
+
 ## Observable surfaces
 
 | Layer | What's observable |

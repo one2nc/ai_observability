@@ -1,35 +1,18 @@
-# Failure Modes & Personas — openllmetry
+# Failure Modes — openllmetry
 
-## Personas
-
-| Persona | What they care about | What the current setup gives them |
-|---------|---------------------|----------------------------------|
-| Platform/SRE | Is the service up? Is it slow? | HTTP spans, latency histograms, error rates |
-| FinOps | How much are we spending on LLMs? | `gen_ai.client.token.usage` — track cost per model |
-| ML/AI Engineer | Is the RAG pipeline working correctly? Are retrievals relevant? | Embed and generate timing only. Retrieval step (pgvector query, similarity scores) is NOT visible — requires manual spans (see otel) or custom metrics |
-| Product Manager | How long do users wait for answers? | End-to-end `/ask` latency |
-| Security/Compliance | What prompts/data are being sent to LLMs? | OpenLLMetry captures prompt/completion content (can be disabled) |
-
-## Failure modes catchable with this setup
-
-| Failure mode | Signal | Auto-instrumented? | Manual work needed | Where to see it |
-|---|---|---|---|---|
-| LLM provider down/slow | `gen_ai.client.operation.duration` spikes or errors | ✅ Yes | None | Duration panel, trace spans with errors |
-| Embedding API failure | `openai.embeddings` span with error status | ✅ Yes | None | Traces tab, filter by status=error |
-| Token budget blown | `gen_ai.client.token.usage` exceeds threshold | ✅ Yes | Set up alert | Metrics alert on token rate |
-| Prompt injection / abuse | Unusually large token counts per request | ✅ Yes (token count) | Correlate with per-request context | Token usage spikes, prompt content in traces |
-| Cost runaway | Token rate increasing without request increase | ✅ Yes | Set up alert on divergence | Token rate vs request rate |
-| **Instrumentable gaps** | | | | |
-| Database connection failure | `rag.ask` span errors out before LLM call | ❌ No | Add span around DB call | Not visible without manual span |
-| Bad retrieval (no relevant docs) | Low similarity scores, poor answers | ❌ No | Emit similarity as span attribute or custom metric | Requires manual instrumentation in retrieve() |
-| Per-user cost attribution | Can't tell which user is burning tokens | ❌ No | Add user_id as span/metric attribute | Not possible without custom attributes |
-| **Evaluation problems** | | | | |
-| Model degradation | Same prompts, worse output quality | ❌ No | Needs eval metrics / LLM-as-judge | Not catchable with observability alone |
-| Hallucination | LLM ignores context and makes things up | ❌ No | Needs eval layer (LLM-as-judge, ground truth) | Not catchable with observability alone |
-| Bad chunking | Poor answers due to irrelevant or split chunks | ❌ No | Needs retrieval eval metrics (precision/recall) | Not catchable with observability alone |
-
-## Observability vs Evaluation boundary
-
-The failure modes marked ❌ fall into two categories:
-- **Instrumentable gaps** (DB connection, bad retrieval, per-user cost): these *could* be caught with richer instrumentation — manual spans, custom metrics, or a tool that auto-instruments your vector DB client.
-- **Evaluation problems** (model degradation, hallucination, bad chunking): these require ground truth or human judgment, not just telemetry. No observability tool can solve them alone.
+| # | Failure mode | Layer | Why? | How? | Where? | What? |
+|---|---|---|---|---|---|---|
+| 1 | App is slow | Application | Identify if latency is app-side or LLM-side | Compare request p95 with LLM duration p95 | FastAPI → Request Duration p95 vs OpenLLMetry → LLM Call Duration | `http.server.duration` vs `gen_ai.client.operation.duration` |
+| 2 | App errors (5xx) | Application | Detect crashes, unhandled exceptions | Alert when 5xx rate > 0 | FastAPI → Error Rate (5xx) | `http.server.duration{http_status_code=~"5.."}` |
+| 3 | App saturation | Application | Prevent request queuing, scale up | Alert when active requests stays high | FastAPI → Active Requests | `http.server.active_requests` |
+| 4 | **LLM provider down/slow** | Provider | Avoid user-facing timeouts | Alert when p95 duration exceeds threshold | OpenLLMetry → LLM Call Duration (p95) | `gen_ai.client.operation.duration` |
+| 5 | Embedding API failure | Provider | Prevent silent search degradation | Filter traces by error status | Trace explorer | `openai.embeddings` span with error status |
+| 6 | **Token budget blown** | Model | Control costs before bill shock | Alert when token rate exceeds budget | OpenLLMetry → Token Usage Rate | `gen_ai.client.token.usage` |
+| 7 | Cost runaway | Model | Catch runaway loops or inefficient prompts | Token rate growing faster than request rate | OpenLLMetry → Token Usage Rate vs FastAPI → Request Rate | `sum(rate(gen_ai_client_token_usage_sum[1m])) / sum(rate(http_server_duration_milliseconds_count[1m]))` — e.g. RAG returning more docs per query inflates prompt tokens |
+| | **Not detectable** | | | | | |
+| 8 | Database connection failure | Application | — | — | — | No span around DB call |
+| 9 | Bad retrieval (no relevant docs) | Retrieval | — | — | — | No similarity scores captured |
+| 10 | Bad chunking | Retrieval | — | — | — | Needs retrieval eval |
+| 11 | Model degradation | Model | — | — | — | Needs eval layer |
+| 12 | Hallucination | Model | — | — | — | Needs eval layer |
+| 13 | Per-user cost attribution | User | — | — | — | No `user.id` on spans/metrics |

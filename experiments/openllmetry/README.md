@@ -133,24 +133,7 @@ On every `openai.embeddings` and `openai.chat` span, these attributes are set au
 
 ## Failure modes
 
-| # | Failure mode | Why? | How? | Where? | What? |
-|---|---|---|---|---|---|
-| 1 | LLM provider down/slow | Avoid user-facing timeouts, trigger failover | Alert when p95 duration exceeds threshold | OpenLLMetry → LLM Call Duration (p95) | `gen_ai.client.operation.duration` metric |
-| 2 | Embedding API failure | Prevent silent search degradation | Filter traces by `status=error`, span name `openai.embeddings` | Trace explorer | `openai.embeddings` span with error status |
-| 3 | Token budget blown | Control costs before bill shock | Alert when token rate exceeds budget | OpenLLMetry → Token Usage Rate | `gen_ai.client.token.usage` metric |
-| 4 | Prompt injection / abuse | Detect misuse, protect system prompts | Token spike → inspect prompt content on trace | OpenLLMetry → Token Usage Rate + Trace explorer | `gen_ai.client.token.usage` + `gen_ai.input.messages` |
-| 5 | Cost runaway | Catch runaway loops or inefficient prompts | Token rate growing faster than request rate | OpenLLMetry → Token Usage Rate vs FastAPI → Request Rate | `gen_ai.client.token.usage` vs `http.server.duration.count` |
-| 6 | App is slow | Identify if latency is app-side or LLM-side | Compare request p95 with LLM duration p95 | FastAPI → Request Duration p95 vs OpenLLMetry → LLM Call Duration (p95) | `http.server.duration` vs `gen_ai.client.operation.duration` |
-| 7 | App errors (5xx) | Detect crashes, unhandled exceptions | Alert when 5xx rate > 0 | FastAPI → Error Rate (5xx) | `http.server.duration{http_status_code=~"5.."}` |
-| 8 | App saturation | Prevent request queuing, scale up | Alert when active requests stays high | FastAPI → Active Requests | `http.server.active_requests` |
-| 9 | Large request payloads | Detect abuse or prompt stuffing | Alert when avg request size spikes | FastAPI → Request Size (bytes, avg) | `http.server.request.size` |
-| | **Not detectable (needs manual instrumentation)** | | | | |
-| 10 | Database connection failure | Avoid silent failures in retrieval | — | — | No span around DB call |
-| 11 | Bad retrieval (irrelevant docs) | Prevent poor answers reaching users | — | — | No similarity scores captured |
-| 12 | Per-user abuse / cost anomaly | Identify who is abusing the system | — | — | No `user.id` on spans/metrics |
-| | **Not detectable (needs eval layer)** | | | | |
-| 13 | Model degradation | Catch quality regressions | — | — | Needs eval layer |
-| 14 | Hallucination | Prevent incorrect answers | — | — | Needs eval layer |
+See [failure_modes.md](failure_modes.md).
 
 ## Usage
 
