@@ -8,7 +8,7 @@
 | 4 | **LLM provider down/slow** | Provider | Avoid user-facing timeouts | Alert when p95 duration exceeds threshold | OpenLLMetry → LLM Call Duration (p95) | `gen_ai.client.operation.duration` |
 | 5 | Embedding API failure | Provider | Prevent silent search degradation | Filter traces by error status | Trace explorer | `openai.embeddings` span with error status |
 | 6 | **Token budget blown** | Model | Control costs before bill shock | Alert when token rate exceeds budget | OpenLLMetry → Token Usage Rate | `gen_ai.client.token.usage` |
-| 7 | Cost runaway | Model | Catch runaway loops or inefficient prompts | Token rate growing faster than request rate | OpenLLMetry → Token Usage Rate vs FastAPI → Request Rate | `sum(rate(gen_ai_client_token_usage_sum[1m])) / sum(rate(http_server_duration_milliseconds_count[1m]))` — e.g. RAG returning more docs per query inflates prompt tokens |
+| 7 | **Cost runaway** | Model | Catch runaway loops or inefficient prompts | Token rate growing faster than request rate | OpenLLMetry → Token Usage Rate vs FastAPI → Request Rate | `sum(rate(gen_ai_client_token_usage_sum[1m])) / sum(rate(http_server_duration_milliseconds_count[1m]))` — e.g. RAG returning more docs per query inflates prompt tokens |
 | | **Not detectable** | | | | | |
 | 8 | Database connection failure | Application | — | — | — | No span around DB call |
 | 9 | Bad retrieval (no relevant docs) | Retrieval | — | — | — | No similarity scores captured |
