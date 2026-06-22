@@ -1,0 +1,13 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-obs-openlit-openai-agents
+    env_file: .env
+    ports:
+      - "8005:8005"
+    environment:
+      PORT: "8005"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

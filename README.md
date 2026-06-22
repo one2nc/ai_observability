@@ -47,6 +47,10 @@ Recommended reading order:
 | 2 | `experiments/openllmetry` | OpenLLMetry auto-instruments OpenAI SDK (tokens, model, prompts for free) | [README](experiments/openllmetry/README.md) |
 | 3 | `experiments/openllmetry_manual` | OpenLLMetry + manual spans (retrieval quality, per-user attribution) | [README](experiments/openllmetry_manual/README.md) |
 | 4 | `experiments/bifrost` | Bifrost AI gateway captures provider/model/token telemetry outside the app | [README](experiments/bifrost/README.md) |
+| 5 | `experiments/openllmetry_openai_agents` | OpenLLMetry traces OpenAI Agents but misses workflow/tool metrics | [README](experiments/openllmetry_openai_agents/README.md) |
+| 6 | `experiments/openlit_openai_agents` | OpenLIT emits workflow, tool, model latency, and token metrics for the same agent | [README](experiments/openlit_openai_agents/README.md) |
+
+OpenAI Agents side-by-side: [OpenLIT vs OpenLLMetry comparison](docs/openai_agents_openlit_vs_openllmetry.md).
 
 ## Infrastructure
 

@@ -1,0 +1,153 @@
+{
+  "id": null,
+  "uid": "openlit-openai-agents",
+  "title": "OpenLIT - OpenAI Agents",
+  "description": "OpenAI Agents workflow, tool, model-call, and token metrics exported by OpenLIT, with HTTP control panels from FastAPI instrumentation.",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Agent Workflow Duration p95",
+      "description": "End-to-end framework and agent execution latency. This should populate for OpenLIT.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(increase(gen_ai_client_operation_duration_seconds_bucket{service_name=\"ai-obs-openlit-openai-agents\",gen_ai_operation_name=~\"invoke_workflow|invoke_agent\"}[$__range])) by (le, gen_ai_operation_name))",
+          "legendFormat": "{{gen_ai_operation_name}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Tool Execution Duration p95",
+      "description": "Latency of function tools called by the incident agent. This should populate for OpenLIT.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(increase(gen_ai_client_operation_duration_seconds_bucket{service_name=\"ai-obs-openlit-openai-agents\",gen_ai_operation_name=\"execute_tool\"}[$__range])) by (le))",
+          "legendFormat": "tools"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Model Call Duration p95",
+      "description": "Latency of model calls made by the OpenAI Agents SDK through Responses API or chat completions.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(increase(gen_ai_client_operation_duration_seconds_bucket{service_name=\"ai-obs-openlit-openai-agents\",gen_ai_operation_name=\"chat\"}[$__range])) by (le, gen_ai_request_model))",
+          "legendFormat": "{{gen_ai_request_model}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Token Usage",
+      "description": "Input and output token consumption in the selected time range. This should populate for OpenLIT.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(gen_ai_client_token_usage_sum{service_name=\"ai-obs-openlit-openai-agents\"}[$__range])) by (gen_ai_token_type, gen_ai_request_model)",
+          "legendFormat": "{{gen_ai_request_model}} {{gen_ai_token_type}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "HTTP Requests",
+      "description": "Control signal for traffic reaching POST /ask in the selected time range.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(http_server_duration_milliseconds_count{service_name=\"ai-obs-openlit-openai-agents\",http_target=\"/ask\"}[$__range])) by (http_status_code)",
+          "legendFormat": "{{http_status_code}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "HTTP Request Duration p95",
+      "description": "User-visible end-to-end request latency.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(increase(http_server_duration_milliseconds_bucket{service_name=\"ai-obs-openlit-openai-agents\",http_target=\"/ask\"}[$__range])) by (le))",
+          "legendFormat": "POST /ask"
+        }
+      ]
+    }
+  ]
+}
