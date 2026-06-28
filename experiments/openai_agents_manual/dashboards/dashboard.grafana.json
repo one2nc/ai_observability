@@ -1,0 +1,140 @@
+{
+  "id": null,
+  "uid": "openai-agents-manual",
+  "title": "OpenAI Agents Manual - Hand-rolled OTel",
+  "description": "Manual tool-loop agent with hand-rolled OTel spans and metrics. All panels should populate — this is the baseline for full observability.",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries", "options": {"tooltip": {"mode": "multi"}},
+      "title": "Agent Workflow Duration p95",
+      "description": "End-to-end workflow execution latency. Populated because we manually record invoke_workflow duration.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(increase(gen_ai_client_operation_duration_seconds_bucket{service_name=\"ai-obs-openai-agents-manual\",gen_ai_operation_name=\"invoke_workflow\"}[$__range])) by (le))",
+          "legendFormat": "invoke_workflow"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries", "options": {"tooltip": {"mode": "multi"}},
+      "title": "Tool Execution Duration p95",
+      "description": "Latency of individual tool calls. Populated because we wrap each dispatch with a span and metric.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(increase(gen_ai_client_operation_duration_seconds_bucket{service_name=\"ai-obs-openai-agents-manual\",gen_ai_operation_name=\"execute_tool\"}[$__range])) by (le))",
+          "legendFormat": "tools"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries", "options": {"tooltip": {"mode": "multi"}},
+      "title": "Model Call Duration p95",
+      "description": "Latency of chat.completions.create calls.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(increase(gen_ai_client_operation_duration_seconds_bucket{service_name=\"ai-obs-openai-agents-manual\",gen_ai_operation_name=\"chat\"}[$__range])) by (le, gen_ai_request_model))",
+          "legendFormat": "{{gen_ai_request_model}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries", "options": {"tooltip": {"mode": "multi"}},
+      "title": "Token Usage",
+      "description": "Input and output token consumption per model call.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(gen_ai_client_token_usage_sum{service_name=\"ai-obs-openai-agents-manual\"}[$__range])) by (gen_ai_token_type, gen_ai_request_model)",
+          "legendFormat": "{{gen_ai_request_model}} {{gen_ai_token_type}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries", "options": {"tooltip": {"mode": "multi"}},
+      "title": "HTTP Requests",
+      "description": "Traffic volume to POST /ask.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(http_server_duration_milliseconds_count{service_name=\"ai-obs-openai-agents-manual\",http_target=\"/ask\"}[$__range])) by (http_status_code)",
+          "legendFormat": "{{http_status_code}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries", "options": {"tooltip": {"mode": "multi"}},
+      "title": "HTTP Request Duration p95",
+      "description": "User-visible end-to-end request latency.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(increase(http_server_duration_milliseconds_bucket{service_name=\"ai-obs-openai-agents-manual\",http_target=\"/ask\"}[$__range])) by (le))",
+          "legendFormat": "POST /ask"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries", "options": {"tooltip": {"mode": "multi"}},
+      "title": "Operation Count (per request insight)",
+      "description": "Number of operations by type. Compare chat count vs HTTP count to see how many model turns happen per user request.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(gen_ai_client_operation_duration_seconds_count{service_name=\"ai-obs-openai-agents-manual\"}[1m])) by (gen_ai_operation_name)",
+          "legendFormat": "{{gen_ai_operation_name}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(http_server_duration_milliseconds_count{service_name=\"ai-obs-openai-agents-manual\",http_target=\"/ask\"}[1m]))",
+          "legendFormat": "http_requests"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries", "options": {"tooltip": {"mode": "multi"}},
+      "title": "Model Turns per Request",
+      "description": "Ratio of model calls to HTTP requests. A value of 2 means the agent makes 2 model round-trips per user request.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(gen_ai_client_operation_duration_seconds_count{service_name=\"ai-obs-openai-agents-manual\",gen_ai_operation_name=\"chat\"}[$__range])) / sum(increase(http_server_duration_milliseconds_count{service_name=\"ai-obs-openai-agents-manual\",http_target=\"/ask\"}[$__range]))",
+          "legendFormat": "turns/request"
+        }
+      ]
+    }
+  ]
+}

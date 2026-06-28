@@ -78,7 +78,7 @@ make dashboard
 
 This dashboard has the same six panels as the OpenLLMetry dashboard so the
 missing OpenLLMetry workflow/tool metric series are directly visible. See
-[the comparison doc](../../docs/openai_agents_openlit_vs_openllmetry.md) for the
+[the comparison doc](docs/openai_agents_openlit_vs_openllmetry.md) for the
 side-by-side expected behavior.
 
 | Panel | Metric | PromQL | What it tells you |

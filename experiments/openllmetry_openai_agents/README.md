@@ -79,7 +79,7 @@ make dashboard
 
 This dashboard has the same six panels as the OpenLIT dashboard. The
 agent/workflow/tool panels being empty is the experiment result, not a dashboard
-defect. See [the comparison doc](../../docs/openai_agents_openlit_vs_openllmetry.md) for
+defect. See [the comparison doc](../openlit_openai_agents/docs/openai_agents_openlit_vs_openllmetry.md) for
 the side-by-side expected behavior.
 
 | Panel | Metric | PromQL | What it tells you |
