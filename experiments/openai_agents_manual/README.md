@@ -145,6 +145,21 @@ dispatch via `asyncio.gather` would help. The trace would show overlapping
 `execute_tool` spans instead of a waterfall, and total workflow duration would
 drop to `max(tool latencies)` instead of `sum(tool latencies)` per turn.
 
+### Agent trace vs Bifrost trace
+
+When using Bifrost as the gateway, the app's trace and Bifrost's trace appear as
+separate traces. This is because the `AsyncOpenAI` HTTP client doesn't include
+the `traceparent` header in requests to the model API, so Bifrost has no way to
+link its spans to your app's trace.
+
+App trace - shows the agent loop (workflow, chat, tool spans):
+
+![Manual agent trace](images/manual-agent-trace.png)
+
+Bifrost trace - shows the proxied model call (separate trace ID):
+
+![Manual Bifrost trace](images/manual-bifrost-trace.png)
+
 | # | Span | Parent | Duration | Source | What it tells you | Sample attributes |
 |---|---|---|---|---|---|---|
 | 1 | `POST /ask` | - | variable | FastAPI auto | End-to-end user latency | `http.target=/ask`, `http.status_code=200` |

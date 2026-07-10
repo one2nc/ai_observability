@@ -34,7 +34,7 @@ app = FastAPI(title="OpenLLMetry + OpenAI Agents", version="0.1.0")
 init_instrumentation(app)
 
 # Import after instrumentation so Agent construction and SDK calls can be patched.
-from src import rag  # noqa: E402
+from src import agent  # noqa: E402
 
 
 class AskRequest(BaseModel):
@@ -53,11 +53,11 @@ def health():
 
 @app.post("/ask", response_model=AskResponse)
 async def ask(req: AskRequest):
-    answer = await rag.run_agent(req.query)
+    answer = await agent.run_agent(req.query)
     return AskResponse(query=req.query, answer=answer)
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ["PORT"]))
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", "8004")))
