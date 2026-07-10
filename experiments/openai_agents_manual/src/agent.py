@@ -25,19 +25,85 @@ token_usage = meter.create_histogram(
 
 # --- Tools ---
 
-TOOLS = {
-    "check_service_health": lambda service: json.dumps(
-        {
-            "checkout": {"status": "degraded", "error_rate": 0.18, "p95_ms": 2400},
-            "payments": {"status": "healthy", "error_rate": 0.002, "p95_ms": 180},
-            "catalog": {"status": "healthy", "error_rate": 0.001, "p95_ms": 95},
-        }.get(service.lower(), {"status": "unknown"})
-    ),
-    "lookup_runbook": lambda service: {
+# Dependency graph: each service lists its upstream dependencies.
+# check_dependencies returns these, prompting the model to check each one.
+#
+# Designed for predictable turn counts:
+#   auth        → no deps        → completes in 1 turn (health + runbook + deps, no deeper)
+#   payments    → ledger          → completes in 2 turns (check payments, then check ledger)
+#   catalog     → search, inventory → completes in 3 turns (catalog → deps → check each)
+#   checkout    → payments, catalog, auth → needs 4+ turns (hits max_turns)
+#
+DEPENDENCY_GRAPH = {
+    "checkout": ["payments", "catalog", "auth"],
+    "payments": ["ledger"],
+    "catalog": ["search-index", "inventory"],
+    "auth": [],
+    "ledger": [],
+    "search-index": [],
+    "inventory": [],
+}
+
+# Simulated latency per service (seconds).
+DEPENDENCY_LATENCY = {
+    "checkout": 0.5,
+    "payments": 0.3,
+    "catalog": 0.2,
+    "auth": 0.1,
+    "ledger": 1.5,        # slow - simulates database
+    "search-index": 0.8,  # moderate
+    "inventory": 0.1,
+}
+
+
+def _check_dependencies(service: str) -> str:
+    """Return upstream dependencies with simulated latency."""
+    svc = service.lower()
+    log.info("status=tool_called tool=check_dependencies service=%s", svc)
+    deps = DEPENDENCY_GRAPH.get(svc)
+    if deps is None:
+        return json.dumps({"error": f"Unknown service: {svc}"})
+    latency = DEPENDENCY_LATENCY.get(svc, 0.1)
+    time.sleep(latency)  # simulate slow dependency resolution
+    log.info("status=dependencies_resolved service=%s dependencies=%s latency_ms=%d", svc, ",".join(deps) if deps else "none", int(latency * 1000))
+    return json.dumps({
+        "service": svc,
+        "dependencies": deps,
+        "resolution_time_ms": int(latency * 1000),
+    })
+
+
+def _check_service_health(service: str) -> str:
+    """Return synthetic live health data for a named service."""
+    svc = service.lower()
+    log.info("status=tool_called tool=check_service_health service=%s", svc)
+    data = {
+        "checkout": {"status": "degraded", "error_rate": 0.18, "p95_ms": 2400},
+        "payments": {"status": "healthy", "error_rate": 0.002, "p95_ms": 180},
+        "catalog": {"status": "degraded", "error_rate": 0.05, "p95_ms": 850},
+        "auth": {"status": "healthy", "error_rate": 0.001, "p95_ms": 50},
+        "ledger": {"status": "degraded", "error_rate": 0.08, "p95_ms": 3200},
+        "search-index": {"status": "degraded", "error_rate": 0.12, "p95_ms": 1200},
+        "inventory": {"status": "healthy", "error_rate": 0.001, "p95_ms": 45},
+    }.get(svc, {"status": "unknown"})
+    return json.dumps(data)
+
+
+def _lookup_runbook(service: str) -> str:
+    """Return the first response steps for a named service."""
+    svc = service.lower()
+    log.info("status=tool_called tool=lookup_runbook service=%s", svc)
+    return {
         "checkout": "Check payment dependency, inspect 5xx logs, then roll back the latest checkout deployment.",
         "payments": "Check provider status and payment queue depth before enabling failover.",
         "catalog": "Check cache hit rate and database replica lag.",
-    }.get(service.lower(), "No runbook found; escalate to the owning team."),
+    }.get(svc, "No runbook found; escalate to the owning team.")
+
+
+TOOLS = {
+    "check_service_health": _check_service_health,
+    "lookup_runbook": _lookup_runbook,
+    "check_dependencies": _check_dependencies,
 }
 
 TOOL_SCHEMAS = [
@@ -65,12 +131,28 @@ TOOL_SCHEMAS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "check_dependencies",
+            "description": "Return upstream service dependencies. Use this to trace which services a given service depends on. Returns the dependency list and resolution time.",
+            "parameters": {
+                "type": "object",
+                "properties": {"service": {"type": "string", "description": "Service name"}},
+                "required": ["service"],
+            },
+        },
+    },
 ]
 
 SYSTEM_PROMPT = (
-    "You triage production incidents. Always call check_service_health and "
-    "lookup_runbook for the affected service. Return severity, evidence, and "
-    "the next three actions. Do not invent telemetry."
+    "You triage production incidents. For the affected service, always call "
+    "check_service_health, lookup_runbook, and check_dependencies. "
+    "For every service returned by check_dependencies, call both "
+    "check_service_health AND check_dependencies on it to trace the full "
+    "dependency chain. Keep following dependencies until you reach services "
+    "with no further dependencies. Only then synthesize your triage report "
+    "with severity, evidence, and the next three actions. Do not invent telemetry."
 )
 
 
@@ -102,6 +184,7 @@ async def run_agent(query: str, client: AsyncOpenAI, model: str, max_turns: int 
             # --- Model call ---
             with tracer.start_as_current_span("chat", attributes={
                 "gen_ai.operation.name": "chat",
+                "gen_ai.turn": turn,
                 **common_attrs,
             }) as chat_span:
                 chat_start = time.perf_counter()
@@ -125,11 +208,13 @@ async def run_agent(query: str, client: AsyncOpenAI, model: str, max_turns: int 
                 token_usage.record(input_tokens, {**metric_attrs, "gen_ai.token.type": "input"})
                 token_usage.record(output_tokens, {**metric_attrs, "gen_ai.token.type": "output"})
 
-            # --- No tool calls → done ---
+            # --- No tool calls -> done ---
             if not choice.tool_calls:
+                log.info("status=turn_complete turn=%d action=synthesized", turn + 1)
                 break
 
             # --- Tool dispatch ---
+            tool_names = [call.function.name for call in choice.tool_calls]
             messages.append(choice)
             for call in choice.tool_calls:
                 with tracer.start_as_current_span("execute_tool", attributes={
@@ -141,6 +226,7 @@ async def run_agent(query: str, client: AsyncOpenAI, model: str, max_turns: int 
                     tool_elapsed = time.perf_counter() - tool_start
 
                     tool_span.set_attribute("gen_ai.tool.result_length", len(result))
+                    tool_span.set_attribute("gen_ai.tool.duration_s", tool_elapsed)
                     workflow_duration.record(tool_elapsed, {
                         "gen_ai.operation.name": "execute_tool",
                         "gen_ai.tool.name": call.function.name,
@@ -151,10 +237,14 @@ async def run_agent(query: str, client: AsyncOpenAI, model: str, max_turns: int 
                     "content": result,
                     "tool_call_id": call.id,
                 })
+            log.info("status=turn_complete turn=%d action=tool_calls tools=%s", turn + 1, ",".join(tool_names))
+        else:
+            log.warning("status=max_turns_reached max_turns=%d", max_turns)
 
         workflow_elapsed = time.perf_counter() - workflow_start
         workflow_span.set_attribute("gen_ai.usage.input_tokens", total_input_tokens)
         workflow_span.set_attribute("gen_ai.usage.output_tokens", total_output_tokens)
+        workflow_span.set_attribute("gen_ai.turns", turn + 1)
         workflow_duration.record(workflow_elapsed, {
             "gen_ai.operation.name": "invoke_workflow",
             "gen_ai.request.model": model,
