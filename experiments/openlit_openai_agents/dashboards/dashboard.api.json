@@ -3,7 +3,13 @@
     "id": null,
     "uid": "openlit-openai-agents",
     "title": "OpenLIT - OpenAI Agents",
-    "description": "OpenAI Agents workflow, tool, model-call, and token metrics exported by OpenLIT, with HTTP control panels from FastAPI instrumentation.",
+    "tags": [
+      "ai-observability",
+      "gen_ai",
+      "openai_agents",
+      "openlit"
+    ],
+    "description": "OpenLIT auto-instrumentation of OpenAI Agents SDK. All GenAI panels populate - workflow, agent, tool, and model metrics.",
     "schemaVersion": 39,
     "version": 1,
     "refresh": "10s",
@@ -13,10 +19,26 @@
     },
     "panels": [
       {
+        "id": 100,
+        "type": "row",
+        "title": "OpenLIT - GenAI Metrics",
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
         "id": 1,
         "type": "timeseries",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
         "title": "Agent Workflow Duration p95",
-        "description": "End-to-end framework and agent execution latency. This should populate for OpenLIT.",
+        "description": "End-to-end workflow and agent execution latency.",
         "datasource": {
           "type": "prometheus",
           "uid": "prometheus"
@@ -25,7 +47,7 @@
           "h": 8,
           "w": 12,
           "x": 0,
-          "y": 0
+          "y": 1
         },
         "targets": [
           {
@@ -38,8 +60,13 @@
       {
         "id": 2,
         "type": "timeseries",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
         "title": "Tool Execution Duration p95",
-        "description": "Latency of function tools called by the incident agent. This should populate for OpenLIT.",
+        "description": "Latency of function tools called by the agent.",
         "datasource": {
           "type": "prometheus",
           "uid": "prometheus"
@@ -48,7 +75,7 @@
           "h": 8,
           "w": 12,
           "x": 12,
-          "y": 0
+          "y": 1
         },
         "targets": [
           {
@@ -61,8 +88,13 @@
       {
         "id": 3,
         "type": "timeseries",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
         "title": "Model Call Duration p95",
-        "description": "Latency of model calls made by the OpenAI Agents SDK through Responses API or chat completions.",
+        "description": "Latency of chat completions calls to the model.",
         "datasource": {
           "type": "prometheus",
           "uid": "prometheus"
@@ -71,7 +103,7 @@
           "h": 8,
           "w": 12,
           "x": 0,
-          "y": 8
+          "y": 9
         },
         "targets": [
           {
@@ -84,8 +116,13 @@
       {
         "id": 4,
         "type": "timeseries",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
         "title": "Token Usage",
-        "description": "Input and output token consumption in the selected time range. This should populate for OpenLIT.",
+        "description": "Input and output token consumption.",
         "datasource": {
           "type": "prometheus",
           "uid": "prometheus"
@@ -94,7 +131,7 @@
           "h": 8,
           "w": 12,
           "x": 12,
-          "y": 8
+          "y": 9
         },
         "targets": [
           {
@@ -107,8 +144,13 @@
       {
         "id": 5,
         "type": "timeseries",
-        "title": "HTTP Requests",
-        "description": "Control signal for traffic reaching POST /ask in the selected time range.",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
+        "title": "Time to First Token p95",
+        "description": "Server-side time to first token from the model provider.",
         "datasource": {
           "type": "prometheus",
           "uid": "prometheus"
@@ -117,7 +159,203 @@
           "h": 8,
           "w": 12,
           "x": 0,
-          "y": 16
+          "y": 17
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "histogram_quantile(0.95, sum(increase(gen_ai_server_time_to_first_token_seconds_bucket{service_name=\"ai-obs-openlit-openai-agents\"}[$__range])) by (le, gen_ai_request_model))",
+            "legendFormat": "{{gen_ai_request_model}}"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "type": "timeseries",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
+        "title": "Usage Cost (USD)",
+        "description": "Estimated cost per model call in USD.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 17
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "sum(increase(gen_ai_usage_cost_USD_sum{service_name=\"ai-obs-openlit-openai-agents\"}[$__range])) by (gen_ai_request_model)",
+            "legendFormat": "{{gen_ai_request_model}}"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "type": "timeseries",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
+        "title": "Operation Rate",
+        "description": "Operations per second by type.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 25
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "sum(rate(gen_ai_client_operation_duration_seconds_count{service_name=\"ai-obs-openlit-openai-agents\"}[1m])) by (gen_ai_operation_name)",
+            "legendFormat": "{{gen_ai_operation_name}}"
+          },
+          {
+            "refId": "B",
+            "expr": "sum(rate(http_server_duration_milliseconds_count{service_name=\"ai-obs-openlit-openai-agents\",http_target=\"/ask\"}[1m]))",
+            "legendFormat": "http_requests"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "type": "timeseries",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
+        "title": "Time Breakdown %",
+        "description": "Fraction of workflow time spent in model calls vs tool calls.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 25
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0,
+            "max": 1
+          }
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "sum(rate(gen_ai_client_operation_duration_seconds_sum{service_name=\"ai-obs-openlit-openai-agents\",gen_ai_operation_name=\"chat\"}[1m])) / sum(rate(gen_ai_client_operation_duration_seconds_sum{service_name=\"ai-obs-openlit-openai-agents\",gen_ai_operation_name=\"invoke_workflow\"}[1m]))",
+            "legendFormat": "model calls %"
+          },
+          {
+            "refId": "B",
+            "expr": "sum(rate(gen_ai_client_operation_duration_seconds_sum{service_name=\"ai-obs-openlit-openai-agents\",gen_ai_operation_name=\"execute_tool\"}[1m])) / sum(rate(gen_ai_client_operation_duration_seconds_sum{service_name=\"ai-obs-openlit-openai-agents\",gen_ai_operation_name=\"invoke_workflow\"}[1m]))",
+            "legendFormat": "tool calls %"
+          }
+        ]
+      },
+      {
+        "id": 13,
+        "type": "timeseries",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
+        "title": "Model Turns per Request",
+        "description": "Ratio of model calls to HTTP requests. Spike = model looping more.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 33
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "sum(increase(gen_ai_client_operation_duration_seconds_count{service_name=\"ai-obs-openlit-openai-agents\",gen_ai_operation_name=\"chat\"}[$__range])) / sum(increase(http_server_duration_milliseconds_count{service_name=\"ai-obs-openlit-openai-agents\",http_target=\"/ask\"}[$__range]))",
+            "legendFormat": "model turns / request"
+          }
+        ]
+      },
+      {
+        "id": 14,
+        "type": "timeseries",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
+        "title": "Tool Calls per Request",
+        "description": "Ratio of tool calls to HTTP requests.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 33
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "sum(increase(gen_ai_client_operation_duration_seconds_count{service_name=\"ai-obs-openlit-openai-agents\",gen_ai_operation_name=\"execute_tool\"}[$__range])) / sum(increase(http_server_duration_milliseconds_count{service_name=\"ai-obs-openlit-openai-agents\",http_target=\"/ask\"}[$__range]))",
+            "legendFormat": "tool calls / request"
+          }
+        ]
+      },
+      {
+        "id": 101,
+        "type": "row",
+        "title": "FastAPI - HTTP Metrics (auto-instrumented)",
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 41
+        }
+      },
+      {
+        "id": 9,
+        "type": "timeseries",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
+        "title": "Request Rate",
+        "description": "Traffic volume to POST /ask.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 42
         },
         "targets": [
           {
@@ -128,9 +366,14 @@
         ]
       },
       {
-        "id": 6,
+        "id": 10,
         "type": "timeseries",
-        "title": "HTTP Request Duration p95",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
+        "title": "Request Duration p95 (ms)",
         "description": "User-visible end-to-end request latency.",
         "datasource": {
           "type": "prometheus",
@@ -140,13 +383,69 @@
           "h": 8,
           "w": 12,
           "x": 12,
-          "y": 16
+          "y": 42
         },
         "targets": [
           {
             "refId": "A",
             "expr": "histogram_quantile(0.95, sum(increase(http_server_duration_milliseconds_bucket{service_name=\"ai-obs-openlit-openai-agents\",http_target=\"/ask\"}[$__range])) by (le))",
             "legendFormat": "POST /ask"
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "type": "timeseries",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
+        "title": "Active Requests",
+        "description": "Concurrent in-flight requests.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 50
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "http_server_active_requests{service_name=\"ai-obs-openlit-openai-agents\"}",
+            "legendFormat": "active"
+          }
+        ]
+      },
+      {
+        "id": 12,
+        "type": "timeseries",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
+        "title": "Error Rate (5xx)",
+        "description": "Rate of server errors.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 50
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "sum(rate(http_server_duration_milliseconds_count{service_name=\"ai-obs-openlit-openai-agents\",http_status_code=~\"5..\"}[1m])) by (http_target)",
+            "legendFormat": "{{http_target}}"
           }
         ]
       }

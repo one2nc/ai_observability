@@ -7,7 +7,7 @@ dependencies = [
   "fastapi>=0.115,<1",
   "uvicorn>=0.30,<1",
   "python-dotenv>=1,<2",
-  "openai-agents==0.17.5",
-  "openlit==1.42.0",
+  "openai-agents>=0.17.5",
+  "openlit>=1.42.0",
   "opentelemetry-instrumentation-fastapi>=0.59b0,<1",
 ]

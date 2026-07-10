@@ -1,52 +1,52 @@
-# OpenLIT + OpenAI Agents: working metrics
+# OpenLIT + OpenAI Agents: full metrics restored
 
-This experiment runs the same incident-triage agent as the paired OpenLLMetry
-experiment, using `openai-agents==0.17.5` and `openlit==1.42.0`.
+## Context: from OpenLLMetry to OpenLIT
 
-OpenLIT has dedicated OpenAI Agents instrumentation plus OpenAI SDK
-instrumentation. It records workflow, agent, tool, and model-call durations,
-plus input/output token usage from either direct Responses API mode or
-chat-completions gateway mode.
+The previous experiment (`openllmetry_openai_agents`) showed that OpenLLMetry
+emits model call and token metrics but misses workflow and tool duration metrics.
+This experiment swaps OpenLLMetry for **OpenLIT** (`openlit`) - same agent,
+same tools, same dependency graph. The question: does OpenLIT fill the gap?
 
-In this experiment, those GenAI metrics populate in both Agents SDK API modes:
-`responses` and legacy `chat_completions`.
+**Answer: yes, and more.** OpenLIT records all operation types (workflow, agent,
+tool, chat) plus additional metrics that neither the manual experiment nor
+OpenLLMetry provide: time-to-first-token and cost in USD.
 
-Upstream references:
+## What OpenLIT emits vs OpenLLMetry
 
-- [OpenLIT OpenAI Agents instrumentor](https://github.com/openlit/openlit/tree/main/openlit/instrumentation/openai_agents)
-- [OpenLIT OpenAI instrumentor](https://github.com/openlit/openlit/tree/main/openlit/instrumentation/openai)
-- [OpenAI Agents SDK](https://github.com/openai/openai-agents-python)
+| Metric | OpenLIT | OpenLLMetry | Manual (exp 5) |
+|---|---|---|---|
+| `gen_ai.client.operation.duration` with `invoke_workflow` | Yes | No | Yes |
+| `gen_ai.client.operation.duration` with `invoke_agent` | Yes | No | No |
+| `gen_ai.client.operation.duration` with `execute_tool` | Yes | No | Yes |
+| `gen_ai.client.operation.duration` with `chat` | Yes | Yes | Yes |
+| `gen_ai.client.token.usage` (input/output) | Yes | Yes | Yes |
+| `gen_ai.server.time_to_first_token` | Yes | No | No |
+| `gen_ai.usage.cost` (USD) | Yes | No | No |
+| `gen_ai.client.generation.choices` | No | Yes | No |
+| HTTP metrics | Yes | Yes | Yes |
 
-## Flow
+The agent code (`src/agent.py`) is identical between this experiment and
+experiment 6 - same `Runner.run()`, same 3 lines. The only difference is which
+instrumentation library wraps it.
 
-```mermaid
-graph LR
-    User -->|POST /ask| API[FastAPI]
-    API --> Agent[Incident triage agent]
-    Agent --> Health[check_service_health]
-    Agent --> Runbook[lookup_runbook]
-    Agent --> ModelAPI[OpenAI model API]
-    OpenLIT -. agent spans + duration metrics .-> Agent
-    OpenLIT -. tool spans + duration metrics .-> Health
-    OpenLIT -. tool spans + duration metrics .-> Runbook
-    OpenLIT -. token + duration metrics .-> ModelAPI
-    API -->|OTLP :4418| Gateway[OTel gateway]
-    Gateway --> Sink[Configured sink]
-```
+## What stays the same
+
+- Same tools: `check_service_health`, `lookup_runbook`, `check_dependencies`
+- Same dependency graph and simulated latencies
+- Same `max_turns=3`
+- Same make targets: `make auth-ask`, `make payments-ask`, `make catalog-ask`, `make checkout-ask`
+- Same agent code as experiment 6
 
 ## Expected trace
-
-Replace the table timings with observed values after running against a real key.
 
 | # | Span | Parent | Duration | Source | What it tells you | Sample attributes |
 |---|---|---|---|---|---|---|
 | 1 | `POST /ask` | - | variable | FastAPI auto | End-to-end user latency | `http.target=/ask`, `http.status_code=200` |
-| 2 | `invoke_workflow Agent workflow` | `POST /ask` | variable | OpenLIT Agents | Whole Agents SDK run | `gen_ai.operation.name=invoke_workflow` |
-| 3 | `invoke_agent incident-triage-agent` | workflow | variable | OpenLIT Agents | One agent invocation | `gen_ai.agent.name=incident-triage-agent` |
-| 4 | `chat gpt-4.1-mini` | agent | variable | OpenLIT OpenAI | Model turn through Responses API or chat completions | model, response ID, token usage |
-| 5 | `execute_tool check_service_health` | agent | variable | OpenLIT Agents | Health tool latency and errors | `gen_ai.tool.name=check_service_health` |
-| 6 | `execute_tool lookup_runbook` | agent | variable | OpenLIT Agents | Runbook tool latency and errors | `gen_ai.tool.name=lookup_runbook` |
-| 7 | `chat gpt-4.1-mini` | agent | variable | OpenLIT OpenAI | Final synthesis turn | input/output token usage |
+| 2 | `invoke_workflow` | `POST /ask` | variable | OpenLIT Agents | Whole agent SDK run | `gen_ai.operation.name=invoke_workflow` |
+| 3 | `invoke_agent` | workflow | variable | OpenLIT Agents | Single agent invocation | `gen_ai.agent.name=incident-triage-agent` |
+| 4 | `chat` | agent | variable | OpenLIT OpenAI | Model call | `gen_ai.request.model`, token usage |
+| 5 | `execute_tool` | agent | variable | OpenLIT Agents | Tool with latency | `gen_ai.tool.name=check_dependencies` |
+| 6 | `chat` | agent | variable | OpenLIT OpenAI | Subsequent model turn | response model and usage |
 
 ## Span attributes
 
@@ -54,43 +54,86 @@ Replace the table timings with observed values after running against a real key.
 |---|---|---|
 | `gen_ai.operation.name` | `invoke_workflow`, `invoke_agent`, `execute_tool`, `chat` | Operation category |
 | `gen_ai.agent.name` | `incident-triage-agent` | Agent identity |
-| `gen_ai.request.model` | `gpt-4.1-mini` | Requested model |
-| `gen_ai.response.model` | `gpt-4.1-mini-...` | Actual model |
-| `gen_ai.usage.input_tokens` | `418` | Prompt/tool context tokens |
+| `gen_ai.request.model` | `gpt-4o-mini` | Requested model |
+| `gen_ai.response.model` | `openai/gpt-4o-mini` | Actual model |
+| `gen_ai.usage.input_tokens` | `418` | Prompt tokens |
 | `gen_ai.usage.output_tokens` | `96` | Generated tokens |
-| `gen_ai.tool.name` | `lookup_runbook` | Executed tool |
-| `server.address` | `api.openai.com` | Provider endpoint |
-
-Message content capture is disabled in `src/instrument.py` to avoid exporting incident
-text, tool arguments, and tool results by default.
+| `gen_ai.tool.name` | `check_dependencies` | Tool called |
+| `server.address` | `host.docker.internal` | Provider endpoint |
 
 ## Metrics dashboard
 
-![Expected dashboard layout](images/metrics-dashboard.svg)
-
 Import `dashboards/dashboard.grafana.json` from Grafana's dashboard import UI.
 
-For API import, use:
+For API import:
 
 ```bash
 make dashboard
 ```
 
-This dashboard has the same six panels as the OpenLLMetry dashboard so the
-missing OpenLLMetry workflow/tool metric series are directly visible. See
-[the comparison doc](docs/openai_agents_openlit_vs_openllmetry.md) for the
-side-by-side expected behavior.
-
 | Panel | Metric | PromQL | What it tells you |
 |---|---|---|---|
-| Agent Workflow Duration p95 | `gen_ai.client.operation.duration` | `histogram_quantile(0.95, sum(increase(gen_ai_client_operation_duration_seconds_bucket{service_name="ai-obs-openlit-openai-agents",gen_ai_operation_name=~"invoke_workflow\|invoke_agent"}[$__range])) by (le, gen_ai_operation_name))` | End-to-end workflow and agent latency |
-| Tool Execution Duration p95 | `gen_ai.client.operation.duration` | `histogram_quantile(0.95, sum(increase(gen_ai_client_operation_duration_seconds_bucket{service_name="ai-obs-openlit-openai-agents",gen_ai_operation_name="execute_tool"}[$__range])) by (le))` | Tool latency |
-| Model Call Duration p95 | `gen_ai.client.operation.duration` | `histogram_quantile(0.95, sum(increase(gen_ai_client_operation_duration_seconds_bucket{service_name="ai-obs-openlit-openai-agents",gen_ai_operation_name="chat"}[$__range])) by (le, gen_ai_request_model))` | Model-call latency |
-| Token Usage | `gen_ai.client.token.usage` | `sum(increase(gen_ai_client_token_usage_sum{service_name="ai-obs-openlit-openai-agents"}[$__range])) by (gen_ai_token_type, gen_ai_request_model)` | Input/output token consumption |
-| HTTP Requests | `http.server.duration` | `sum(increase(http_server_duration_milliseconds_count{service_name="ai-obs-openlit-openai-agents",http_target="/ask"}[$__range])) by (http_status_code)` | Traffic volume |
-| HTTP Request Duration p95 | `http.server.duration` | `histogram_quantile(0.95, sum(increase(http_server_duration_milliseconds_bucket{service_name="ai-obs-openlit-openai-agents",http_target="/ask"}[$__range])) by (le))` | User-visible latency |
+| Agent Workflow Duration p95 | `gen_ai.client.operation.duration` | `histogram_quantile(0.95, ...{gen_ai_operation_name=~"invoke_workflow\|invoke_agent"})` | End-to-end workflow and agent latency |
+| Tool Execution Duration p95 | `gen_ai.client.operation.duration` | `...{gen_ai_operation_name="execute_tool"}` | Tool latency |
+| Model Call Duration p95 | `gen_ai.client.operation.duration` | `...{gen_ai_operation_name="chat"}` | Provider latency |
+| Token Usage | `gen_ai.client.token.usage` | `sum(increase(...)) by (gen_ai_token_type, gen_ai_request_model)` | Token consumption |
+| Time to First Token p95 | `gen_ai.server.time_to_first_token` | `histogram_quantile(0.95, ...)` | How fast the model starts responding |
+| Usage Cost (USD) | `gen_ai.usage.cost` | `sum(increase(...)) by (gen_ai_request_model)` | Dollar cost per model |
+| Operation Rate | `gen_ai.client.operation.duration` | `sum(rate(..._count[1m])) by (gen_ai_operation_name)` | Operations/sec by type |
+| Time Breakdown % | `gen_ai.client.operation.duration` | `rate(chat_sum) / rate(workflow_sum)` | Model vs tool time fraction |
+| Model Turns per Request | `gen_ai.client.operation.duration` | `chat count / http count` | How many model calls per user request |
+| Tool Calls per Request | `gen_ai.client.operation.duration` | `execute_tool count / http count` | How many tool invocations per user request |
+| Request Rate | `http.server.duration` | `sum(increase(..._count)) by (http_status_code)` | Traffic volume |
+| Request Duration p95 (ms) | `http.server.duration` | `histogram_quantile(0.95, ...)` | User-visible latency |
+| Active Requests | `http.server.active_requests` | `http_server_active_requests{...}` | Concurrency |
+| Error Rate (5xx) | `http.server.duration` | `...{http_status_code=~"5.."}` | Server errors |
 
-## Metric dimensions
+## Failure modes
+
+| # | Failure mode | Detectable? | How? | Where? | What metric? |
+|---|---|---|---|---|---|
+| 1 | Slow conversation | Yes | Alert on workflow p95 | Agent Workflow Duration panel | `gen_ai_client_operation_duration_seconds{gen_ai_operation_name="invoke_workflow"}` |
+| 2 | Slow tool | Yes | Alert on tool p95 | Tool Execution Duration panel | `gen_ai_client_operation_duration_seconds{gen_ai_operation_name="execute_tool"}` |
+| 3 | Slow provider | Yes | Alert on chat p95 | Model Call Duration panel | `gen_ai_client_operation_duration_seconds{gen_ai_operation_name="chat"}` |
+| 4 | Token cost spike | Yes | Alert on token rate | Token Usage panel | `gen_ai_client_token_usage_sum` |
+| 5 | Dollar cost spike | Yes | Alert on cost rate | Usage Cost panel | `gen_ai_usage_cost_USD_sum` |
+| 6 | Slow first token | Yes | Alert on TTFT p95 | Time to First Token panel | `gen_ai_server_time_to_first_token_seconds` |
+| 7 | Runaway turns | Yes | Operation rate ratio | Operation Rate panel | `chat` rate vs `http_requests` rate |
+| 8 | Tool failure | Yes (traces) | Filter error spans | Trace explorer | `execute_tool` span with error |
+| 9 | Provider error | Yes | Error spans + HTTP 5xx | Trace explorer + Error Rate panel | Chat span exception + `http_status_code=~"5.."` |
+
+Every failure mode from experiment 5 (manual) is detectable here from metrics.
+No need to open traces for latency or cost debugging.
+
+## Usage
+
+```bash
+cd ../../infra
+make up
+
+cd ../experiments/openlit_openai_agents
+cp .env.example .env
+# Set OPENAI_API_KEY
+
+make up
+```
+
+From another terminal:
+
+```bash
+make auth-ask           # 2 turns - no dependencies
+make payments-ask       # 3 turns - checks ledger
+make catalog-ask        # 3 turns - checks search-index, inventory
+make checkout-ask       # 4 turns - hits max_turns=3, gets cut off
+make random-ask         # random service each time
+make metrics
+make dashboard
+```
+
+All GenAI panels populate. Compare with experiment 6 where workflow and tool
+panels were empty.
+
+## Appendix: Metric dimensions
 
 ### `gen_ai.client.operation.duration`
 
@@ -98,9 +141,10 @@ side-by-side expected behavior.
 |---|---|
 | `gen_ai_operation_name` | `invoke_workflow`, `invoke_agent`, `execute_tool`, `chat` |
 | `gen_ai_provider_name` | `openai` |
-| `gen_ai_request_model` | `gpt-4.1-mini` |
-| `server_address` | `api.openai.com` |
-| `server_port` | `443` |
+| `gen_ai_request_model` | `gpt-4o-mini` (only for `chat`) |
+| `gen_ai_response_model` | `openai/gpt-4o-mini` (only for `chat`) |
+| `server_address` | `api.openai.com` or `host.docker.internal` |
+| `server_port` | `443` or `8800` |
 | `deployment_environment` | `benchmark` |
 | `service_name` | `ai-obs-openlit-openai-agents` |
 
@@ -109,11 +153,23 @@ side-by-side expected behavior.
 | Dimension | Example |
 |---|---|
 | `gen_ai_operation_name` | `chat` |
-| `gen_ai_provider_name` | `openai` |
-| `gen_ai_request_model` | `gpt-4.1-mini` |
-| `gen_ai_response_model` | `gpt-4.1-mini-...` |
+| `gen_ai_request_model` | `gpt-4o-mini` |
 | `gen_ai_token_type` | `input`, `output` |
-| `server_address` | `api.openai.com` |
+| `service_name` | `ai-obs-openlit-openai-agents` |
+
+### `gen_ai.server.time_to_first_token`
+
+| Dimension | Example |
+|---|---|
+| `gen_ai_request_model` | `gpt-4o-mini` |
+| `server_address` | `host.docker.internal` |
+| `service_name` | `ai-obs-openlit-openai-agents` |
+
+### `gen_ai.usage.cost`
+
+| Dimension | Example |
+|---|---|
+| `gen_ai_request_model` | `gpt-4o-mini` |
 | `service_name` | `ai-obs-openlit-openai-agents` |
 
 ### HTTP metrics
@@ -124,58 +180,3 @@ side-by-side expected behavior.
 | `http_target` | `/ask` |
 | `http_status_code` | `200` |
 | `service_name` | `ai-obs-openlit-openai-agents` |
-
-## Failure modes
-
-| # | Failure mode | Why? | How? | Where? | What? |
-|---|---|---|---|---|---|
-| 1 | Agent latency regression | Slow multi-turn runs hurt users | Alert on workflow p95 | Agent dashboard | `gen_ai.client.operation.duration` |
-| 2 | Slow tool | External/tool work dominates latency | Filter operation=`execute_tool` | Tool panel | Duration histogram |
-| 3 | Provider slowdown | Model calls dominate latency | Filter operation=`chat` | Responses panel | Duration histogram |
-| 4 | Token cost spike | Context or loops increase spend | Alert on token rate | Token panel | Token histogram |
-| 5 | Runaway agent turns | Multiple model calls per request multiply cost | Compare chat-call rate with HTTP rate | Dashboard | GenAI duration count vs HTTP count |
-| 6 | Tool failure | Agent cannot obtain evidence | Inspect tool error spans | Trace explorer | Tool span error status |
-| 7 | Provider error | Responses call fails | Filter error traces and HTTP 5xx | Traces + HTTP | Error status/type |
-| 8 | Metrics pipeline failure | No operational visibility | Compare HTTP and GenAI panels | Dashboard | Both signal families absent |
-
-## Usage
-
-```bash
-cd ../../infra
-make up
-
-cd ../experiments/openlit_openai_agents
-cp .env.example .env
-# Set OPENAI_API_KEY and OPENAI_MODEL.
-
-make up
-```
-
-For Bifrost, use the virtual key and force the Agents SDK onto the
-chat-completions path:
-
-```bash
-OPENAI_API_KEY=<bifrost-virtual-key>
-OPENAI_MODEL=openai/gpt-4o-mini
-OPENAI_AGENTS_API=chat_completions
-OPENAI_BASE_URL=http://host.docker.internal:8000/v1
-```
-
-The `/v1` suffix matters. Without it the OpenAI SDK posts to
-`http://host.docker.internal:8000/responses`, which Bifrost rejects with
-`405 Method Not Allowed`.
-
-The app also calls `set_default_openai_client(..., use_for_tracing=False)`.
-Without that, the OpenAI Agents SDK tries to upload hosted traces to OpenAI with
-the Bifrost virtual key and logs `401 invalid_api_key` for `/v1/traces/ingest`.
-
-From another terminal:
-
-```bash
-make ask
-make metrics
-make dashboard
-```
-
-Run `make ask` several times. The imported dashboard should show HTTP traffic,
-agent/workflow/tool duration series, model-call duration, and token usage.
