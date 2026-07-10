@@ -1,6 +1,6 @@
 # AI Observability
 
-Benchmarking AI observability using a minimal RAG application. Same app, different instrumentation per experiment — compare what each approach captures.
+Exploring AI observability across RAG pipelines and agentic workflows. Each experiment instruments the same application differently - compare what each approach captures, what it misses, and what failure modes it can detect.
 
 ## Architecture
 
@@ -10,12 +10,12 @@ graph LR
 
     subgraph experiments["experiments/"]
         direction TB
-        otel --- openllmetry --- openllmetry_manual --- bifrost --- portkey --- more_exp[...]
+        otel --- openllmetry --- openllmetry_manual --- bifrost --- openai_agents_manual --- openllmetry_openai_agents --- openlit_openai_agents --- more_exp[...]
     end
 
     subgraph gateways["AI Gateways"]
         direction TB
-        none_gw[none] --- bifrost_gw[bifrost] --- portkey_gw[portkey] --- more_gw[...]
+        none_gw[none] --- bifrost_gw[bifrost] --- more_gw[...]
     end
 
     subgraph sinks["Sinks"]
@@ -42,7 +42,7 @@ Recommended reading order:
 
 | Order | Experiment | What it demonstrates | README |
 |-------|------------|---------------------|--------|
-| — | `base/` | Uninstrumented RAG app (source of truth) | [README](base/README.md) |
+| — | `base/` | Uninstrumented RAG app (reference) | [README](base/README.md) |
 | 1 | `experiments/otel` | Vanilla OTel: manual spans, metrics, logs | [README](experiments/otel/README.md) |
 | 2 | `experiments/openllmetry` | OpenLLMetry auto-instruments OpenAI SDK (tokens, model, prompts for free) | [README](experiments/openllmetry/README.md) |
 | 3 | `experiments/openllmetry_manual` | OpenLLMetry + manual spans (retrieval quality, per-user attribution) | [README](experiments/openllmetry_manual/README.md) |
@@ -50,8 +50,6 @@ Recommended reading order:
 | 5 | `experiments/openai_agents_manual` | Manual tool-loop agent with hand-rolled OTel — full observability baseline | [README](experiments/openai_agents_manual/README.md) |
 | 6 | `experiments/openllmetry_openai_agents` | OpenLLMetry traces OpenAI Agents but misses workflow/tool metrics | [README](experiments/openllmetry_openai_agents/README.md) |
 | 7 | `experiments/openlit_openai_agents` | OpenLIT emits workflow, tool, model latency, and token metrics for the same agent | [README](experiments/openlit_openai_agents/README.md) |
-
-OpenAI Agents side-by-side: [OpenLIT vs OpenLLMetry comparison](experiments/openlit_openai_agents/docs/openai_agents_openlit_vs_openllmetry.md).
 
 ## Infrastructure
 
@@ -84,3 +82,4 @@ Quick links:
 | HTTP/API | Request latency, status codes, route-level metrics |
 | RAG/Vector DB | Embedding calls, pgvector query latency, retrieval similarity scores |
 | LLM | Token usage, model, prompt/completion content, generation latency |
+| Agent | Workflow duration, tool execution latency, turn count, cost per request |
