@@ -48,15 +48,6 @@ checkout (0.5s)
 └── auth (0.1s)
 ```
 
-The code sets `max_turns=4`. Different services exercise different turn counts:
-
-| Target | Service | Dependencies | Expected turns | Result |
-|---|---|---|---|---|
-| `make auth-ask` | auth | none | 1 | Completes immediately |
-| `make payments-ask` | payments | ledger | 2 | Checks payments, then ledger |
-| `make catalog-ask` | catalog | search-index, inventory | 3 | Checks catalog, then both deps |
-| `make checkout-ask` | checkout | payments, catalog, auth | 4+ | Hits max_turns, gets cut off |
-
 When the user asks about catalog, the model follows the dependency chain (3 turns):
 
 ```mermaid
@@ -93,8 +84,17 @@ sequenceDiagram
     A-->>U: severity, evidence, next actions
 ```
 
-For checkout (4+ turns), the model must also explore payments (→ ledger) and
-auth before it can synthesize, which exceeds `max_turns=4` and gets cut off.
+For checkout (4 turns), the model must also explore payments (-> ledger) and
+auth before it can synthesize, which exceeds `max_turns=3` and gets cut off.
+
+The code sets `max_turns=3`. Different services exercise different turn counts:
+
+| Target | Service | Dependencies | Expected turns | Result |
+|---|---|---|---|---|
+| `make auth-ask` | auth | none | 2 | Checks auth, no deps to follow, synthesizes |
+| `make payments-ask` | payments | ledger | 3 | Checks payments, then ledger, synthesizes |
+| `make catalog-ask` | catalog | search-index, inventory | 3 | Checks catalog, then search-index and inventory, synthesizes |
+| `make checkout-ask` | checkout | payments, catalog, auth | 4 | Checks checkout, then payments, catalog, auth, then ledger, search-index, inventory, hits max_turns=3, fails to synthesize |
 
 If all you have is the HTTP-level
 metric ("this request took 20 seconds"), you can't tell whether the bottleneck
@@ -120,15 +120,23 @@ with tracer.start_as_current_span("invoke_workflow"):
                 duration_histogram.record(elapsed, {"operation": "execute_tool"})
 ```
 
-The result: **all six dashboard panels populate** - workflow duration, tool latency,
-model-call duration, token usage, HTTP traffic, and HTTP latency. This is the
-observability baseline.
+The result: **full observability** into every step of the agent loop because you
+own the code that executes each step.
 
-Experiments 6 and 7 replace the manual loop with the OpenAI Agents SDK (less
-code, same behavior) and test whether instrumentation libraries can reproduce
-this visibility automatically.
+The tradeoff is effort: you write and maintain both the loop and the
+instrumentation manually. The next experiments explore whether frameworks and
+auto-instrumentation libraries can reproduce this visibility with less code.
 
 ## Expected trace
+
+A checkout request (10.54s, 23 spans) showing the full dependency chain:
+
+![Sample trace](images/sample-trace.png)
+
+The trace shows what metrics cannot: the exact sequence and duration of each
+operation within a single request. You can see which `chat` span was slow,
+which `execute_tool` had high `gen_ai.tool.duration_s`, and how many turns
+the model took before hitting max_turns or synthesizing.
 
 | # | Span | Parent | Duration | Source | What it tells you | Sample attributes |
 |---|---|---|---|---|---|---|
@@ -161,8 +169,26 @@ For API import:
 make dashboard
 ```
 
-All six panels should populate - this is the baseline for "what full observability
-looks like."
+### Example: checkout workflow duration
+
+After running `make checkout-ask` repeatedly, the workflow duration shows the
+cost of deep dependency chains:
+
+**p95 = 23.8s** - worst case, includes slow model responses + all tool sleeps:
+
+![Workflow Duration p95](images/checkout-workflow-time-p95.png)
+
+**p50 = 7.98s** - typical case, still expensive due to 3 model calls + tool latency:
+
+![Workflow Duration p50](images/checkout-workflow-time-p50.png)
+
+**Sample log** - one checkout request hitting max_turns=3 (15:29:32 to 15:29:40 = 8s):
+
+![Sample checkout log](images/checkout-workflow-sample-log.png)
+
+The breakdown for this request: 3 model calls (~6s) + tool sleeps (0.5 + 0.3 +
+0.2 + 0.1 + 1.5 + 0.8 + 0.1 = 3.5s) = ~9.5s total, with the p95/p50 gap
+explained by variable model response times across requests.
 
 | Panel | Metric | PromQL | What it tells you |
 |---|---|---|---|
@@ -213,11 +239,6 @@ make random-ask         # random service each time
 make metrics
 make dashboard
 ```
-
-## What to read next
-
-- [Experiment 6: OpenLLMetry + OpenAI Agents](../openllmetry_openai_agents/README.md) - same agent with the Agents SDK; metrics disappear
-- [Experiment 7: OpenLIT + OpenAI Agents](../openlit_openai_agents/README.md) - same agent with the Agents SDK; metrics restored
 
 ## Appendix: Metric dimensions
 

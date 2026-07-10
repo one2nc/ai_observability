@@ -164,7 +164,7 @@ def _dispatch_tool(name: str, arguments: str) -> str:
     return fn(**args)
 
 
-async def run_agent(query: str, client: AsyncOpenAI, model: str, max_turns: int = 4) -> str:
+async def run_agent(query: str, client: AsyncOpenAI, model: str, max_turns: int = 3) -> str:
     """Run the tool loop with manual OTel instrumentation."""
     common_attrs = {"gen_ai.request.model": model, "server.address": "api.openai.com"}
 
