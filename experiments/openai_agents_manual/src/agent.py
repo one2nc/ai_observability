@@ -1,4 +1,4 @@
-"""Manual tool-loop agent without the OpenAI Agents SDK."""
+"""Manual tool-loop agent - sequential tool dispatch."""
 
 import json
 import logging
@@ -26,13 +26,12 @@ token_usage = meter.create_histogram(
 # --- Tools ---
 
 # Dependency graph: each service lists its upstream dependencies.
-# check_dependencies returns these, prompting the model to check each one.
 #
 # Designed for predictable turn counts:
-#   auth        → no deps        → completes in 1 turn (health + runbook + deps, no deeper)
-#   payments    → ledger          → completes in 2 turns (check payments, then check ledger)
-#   catalog     → search, inventory → completes in 3 turns (catalog → deps → check each)
-#   checkout    → payments, catalog, auth → needs 4+ turns (hits max_turns)
+#   auth        -> no deps            -> completes in 2 turns
+#   payments    -> ledger             -> completes in 3 turns
+#   catalog     -> search, inventory  -> completes in 3 turns
+#   checkout    -> payments, catalog, auth -> needs 4 turns (hits max_turns=3)
 #
 DEPENDENCY_GRAPH = {
     "checkout": ["payments", "catalog", "auth"],
@@ -64,7 +63,7 @@ def _check_dependencies(service: str) -> str:
     if deps is None:
         return json.dumps({"error": f"Unknown service: {svc}"})
     latency = DEPENDENCY_LATENCY.get(svc, 0.1)
-    time.sleep(latency)  # simulate slow dependency resolution
+    time.sleep(latency)
     log.info("status=dependencies_resolved service=%s dependencies=%s latency_ms=%d", svc, ",".join(deps) if deps else "none", int(latency * 1000))
     return json.dumps({
         "service": svc,
@@ -165,7 +164,7 @@ def _dispatch_tool(name: str, arguments: str) -> str:
 
 
 async def run_agent(query: str, client: AsyncOpenAI, model: str, max_turns: int = 3) -> str:
-    """Run the tool loop with manual OTel instrumentation."""
+    """Run the tool loop with manual OTel instrumentation. Tools execute sequentially."""
     common_attrs = {"gen_ai.request.model": model, "server.address": "api.openai.com"}
 
     with tracer.start_as_current_span("invoke_workflow", attributes={
@@ -213,7 +212,7 @@ async def run_agent(query: str, client: AsyncOpenAI, model: str, max_turns: int 
                 log.info("status=turn_complete turn=%d action=synthesized", turn + 1)
                 break
 
-            # --- Tool dispatch ---
+            # --- Tool dispatch (sequential) ---
             tool_names = [call.function.name for call in choice.tool_calls]
             messages.append(choice)
             for call in choice.tool_calls:
@@ -232,11 +231,7 @@ async def run_agent(query: str, client: AsyncOpenAI, model: str, max_turns: int 
                         "gen_ai.tool.name": call.function.name,
                     })
 
-                messages.append({
-                    "role": "tool",
-                    "content": result,
-                    "tool_call_id": call.id,
-                })
+                messages.append({"role": "tool", "content": result, "tool_call_id": call.id})
             log.info("status=turn_complete turn=%d action=tool_calls tools=%s", turn + 1, ",".join(tool_names))
         else:
             log.warning("status=max_turns_reached max_turns=%d", max_turns)

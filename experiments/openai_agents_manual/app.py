@@ -28,7 +28,6 @@ logging.basicConfig(
 from fastapi import FastAPI  # noqa: E402
 from openai import AsyncOpenAI  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
-
 from src.instrument import init_instrumentation  # noqa: E402
 
 app = FastAPI(title="OpenAI Agents Manual", version="0.1.0")

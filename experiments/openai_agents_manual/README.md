@@ -138,6 +138,13 @@ operation within a single request. You can see which `chat` span was slow,
 which `execute_tool` had high `gen_ai.tool.duration_s`, and how many turns
 the model took before hitting max_turns or synthesizing.
 
+Notice that tool calls execute sequentially - each `execute_tool` span starts
+after the previous one ends. If tool latencies are high (real HTTP calls to
+external services instead of in-memory lookups), this is where concurrent
+dispatch via `asyncio.gather` would help. The trace would show overlapping
+`execute_tool` spans instead of a waterfall, and total workflow duration would
+drop to `max(tool latencies)` instead of `sum(tool latencies)` per turn.
+
 | # | Span | Parent | Duration | Source | What it tells you | Sample attributes |
 |---|---|---|---|---|---|---|
 | 1 | `POST /ask` | - | variable | FastAPI auto | End-to-end user latency | `http.target=/ask`, `http.status_code=200` |
