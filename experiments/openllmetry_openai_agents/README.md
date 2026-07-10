@@ -62,7 +62,32 @@ or `execute_tool` operation names present.
 | Model call duration metrics | Populated | Populated (from OpenAI SDK instrumentor) |
 | Token usage metrics | Populated | Populated (from OpenAI SDK instrumentor) |
 | Generation choices metric | Not present | Populated (finish reason: stop vs tool_call) |
-| Traces | Manual spans | Auto spans from OpenLLMetry |
+| Traces | Manual spans, disconnected from Bifrost | Auto spans, connected through Bifrost |
+
+### Code simplification
+
+The agent logic goes from ~250 lines to ~113 lines. The core of it:
+
+```python
+# Experiment 5: manual loop (~80 lines of loop + dispatch + message management)
+async def run_agent(query: str, client: AsyncOpenAI, model: str, max_turns: int = 3) -> str:
+    for turn in range(max_turns):
+        response = await client.chat.completions.create(...)
+        if not choice.tool_calls:
+            break
+        for call in choice.tool_calls:
+            result = _dispatch_tool(call.function.name, call.function.arguments)
+            ...
+
+# This experiment: 3 lines
+async def run_agent(query: str) -> str:
+    result = await Runner.run(agent, query, max_turns=3)
+    return str(result.final_output)
+```
+
+No client management, no message list, no tool dispatch loop, no
+instrumentation code in the agent. The tradeoff: you lose workflow and tool
+metrics.
 
 ## Expected trace
 
