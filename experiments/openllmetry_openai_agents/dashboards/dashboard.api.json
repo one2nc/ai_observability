@@ -1,0 +1,382 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "openllmetry-openai-agents",
+    "title": "OpenLLMetry - OpenAI Agents",
+    "tags": [
+      "ai-observability",
+      "gen_ai",
+      "openai_agents",
+      "openllmetry"
+    ],
+    "description": "All metrics emitted by OpenLLMetry for the OpenAI Agents experiment.",
+    "schemaVersion": 39,
+    "version": 1,
+    "refresh": "10s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 100,
+        "type": "row",
+        "title": "OpenLLMetry - GenAI Metrics",
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": 1,
+        "type": "timeseries",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
+        "title": "Model Call Duration p95",
+        "description": "Latency of chat completions calls. Only operation emitting duration metrics.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 1
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "histogram_quantile(0.95, sum(increase(gen_ai_client_operation_duration_seconds_bucket{service_name=\"ai-obs-openllmetry-openai-agents\"}[$__range])) by (le, gen_ai_operation_name))",
+            "legendFormat": "{{gen_ai_operation_name}}"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "type": "timeseries",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
+        "title": "Token Usage",
+        "description": "Input and output token consumption.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 1
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "sum(increase(gen_ai_client_token_usage_sum{service_name=\"ai-obs-openllmetry-openai-agents\"}[$__range])) by (gen_ai_token_type, gen_ai_response_model)",
+            "legendFormat": "{{gen_ai_response_model}} {{gen_ai_token_type}}"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "type": "timeseries",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
+        "title": "Generation Choices by Finish Reason",
+        "description": "Total completions split by finish reason (stop vs tool_call). Shows how often the model calls tools vs synthesizes.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 9
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "sum(increase(gen_ai_client_generation_choices_choice_total{service_name=\"ai-obs-openllmetry-openai-agents\",gen_ai_response_finish_reason!=\"\"}[$__range])) by (gen_ai_response_finish_reason)",
+            "legendFormat": "{{gen_ai_response_finish_reason}}"
+          }
+        ]
+      },
+      {
+        "id": 12,
+        "type": "timeseries",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
+        "title": "Tool Calls per Completed Request",
+        "description": "Ratio of tool_call to stop finish reasons. Value of 1.4 means the model averages 1.4 tool-calling turns before synthesizing. Spike = model looping more.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 9
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "sum(increase(gen_ai_client_generation_choices_choice_total{service_name=\"ai-obs-openllmetry-openai-agents\",gen_ai_response_finish_reason=\"tool_call\"}[$__range])) / sum(increase(gen_ai_client_generation_choices_choice_total{service_name=\"ai-obs-openllmetry-openai-agents\",gen_ai_response_finish_reason=\"stop\"}[$__range]))",
+            "legendFormat": "tool_calls / completed"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "type": "timeseries",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
+        "title": "Agent Workflow Duration p95 (MISSING)",
+        "description": "Expected from Agents instrumentor but not recorded. Empty panel proves the metrics gap.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 9
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "histogram_quantile(0.95, sum(increase(gen_ai_client_operation_duration_seconds_bucket{service_name=\"ai-obs-openllmetry-openai-agents\",gen_ai_operation_name=\"invoke_workflow\"}[$__range])) by (le))",
+            "legendFormat": "invoke_workflow"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "type": "timeseries",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
+        "title": "Tool Execution Duration p95 (MISSING)",
+        "description": "Expected from Agents instrumentor but not recorded. Empty panel proves the metrics gap.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 17
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "histogram_quantile(0.95, sum(increase(gen_ai_client_operation_duration_seconds_bucket{service_name=\"ai-obs-openllmetry-openai-agents\",gen_ai_operation_name=\"execute_tool\"}[$__range])) by (le))",
+            "legendFormat": "tools"
+          }
+        ]
+      },
+      {
+        "id": 101,
+        "type": "row",
+        "title": "FastAPI - HTTP Metrics (auto-instrumented)",
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 25
+        }
+      },
+      {
+        "id": 6,
+        "type": "timeseries",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
+        "title": "Request Rate",
+        "description": "Traffic volume to POST /ask.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 26
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "sum(increase(http_server_duration_milliseconds_count{service_name=\"ai-obs-openllmetry-openai-agents\",http_target=\"/ask\"}[$__range])) by (http_status_code)",
+            "legendFormat": "{{http_status_code}}"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "type": "timeseries",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
+        "title": "Request Duration p95 (ms)",
+        "description": "User-visible end-to-end request latency.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 26
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "histogram_quantile(0.95, sum(increase(http_server_duration_milliseconds_bucket{service_name=\"ai-obs-openllmetry-openai-agents\",http_target=\"/ask\"}[$__range])) by (le))",
+            "legendFormat": "POST /ask"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "type": "timeseries",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
+        "title": "Active Requests",
+        "description": "Concurrent in-flight requests.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 34
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "http_server_active_requests{service_name=\"ai-obs-openllmetry-openai-agents\"}",
+            "legendFormat": "active"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "type": "timeseries",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
+        "title": "Error Rate (5xx)",
+        "description": "Rate of server errors.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 34
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "sum(rate(http_server_duration_milliseconds_count{service_name=\"ai-obs-openllmetry-openai-agents\",http_status_code=~\"5..\"}[1m])) by (http_target)",
+            "legendFormat": "{{http_target}}"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "type": "timeseries",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
+        "title": "Request Size (bytes, avg)",
+        "description": "Average request payload size.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 42
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "rate(http_server_request_size_bytes_sum{service_name=\"ai-obs-openllmetry-openai-agents\"}[1m]) / rate(http_server_request_size_bytes_count{service_name=\"ai-obs-openllmetry-openai-agents\"}[1m])",
+            "legendFormat": "avg request bytes"
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "type": "timeseries",
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
+        "title": "Response Size (bytes, avg)",
+        "description": "Average response payload size.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 42
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "rate(http_server_response_size_bytes_sum{service_name=\"ai-obs-openllmetry-openai-agents\"}[1m]) / rate(http_server_response_size_bytes_count{service_name=\"ai-obs-openllmetry-openai-agents\"}[1m])",
+            "legendFormat": "avg response bytes"
+          }
+        ]
+      }
+    ]
+  },
+  "overwrite": true
+}

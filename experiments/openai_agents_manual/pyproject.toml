@@ -1,0 +1,16 @@
+[project]
+name = "ai-observability-openai-agents-manual"
+version = "0.1.0"
+description = "Manual tool-loop agent with hand-rolled OTel instrumentation."
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.30,<1",
+  "python-dotenv>=1,<2",
+  "openai>=1.70,<2",
+  "opentelemetry-api>=1.38,<2",
+  "opentelemetry-sdk>=1.38,<2",
+  "opentelemetry-exporter-otlp-proto-http>=1.38,<2",
+  "opentelemetry-instrumentation-fastapi>=0.59b0,<1",
+  "opentelemetry-instrumentation-logging>=0.59b0,<1",
+]

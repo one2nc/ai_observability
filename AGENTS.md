@@ -2,14 +2,14 @@
 
 ## Project Goal
 
-Benchmark AI observability by instrumenting a minimal RAG application with different OTel-based setups. Each experiment answers: "what can I see, what can't I see, and what failure modes can I catch?"
+Benchmark AI observability by instrumenting applications with different OTel-based setups. Each experiment answers: "what can I see, what can't I see, and what failure modes can I catch?"
 
 The output is a comparison matrix showing the tradeoffs between auto-instrumentation, manual instrumentation, and AI gateways — grounded in real traces, metrics, and logs.
 
 ## Project Structure
 
 ```
-base/                              # Uninstrumented RAG app (source of truth)
+base/                              # Uninstrumented RAG app (reference)
 infra/                             # Shared infrastructure
 ├── postgres/                      # pgvector
 ├── otel-collector-gateway/        # Generic OTel collector (apps send here)
@@ -27,25 +27,27 @@ experiments/
 
 ## Experiment Structure
 
-Each experiment is a standalone, self-contained copy of the base app with instrumentation added. It must have:
+Each experiment is standalone and self-contained. Language, framework, and internal file layout are up to the experiment. The contract is the interface:
 
-- `app.py` — FastAPI app with instrumentation wired in
-- `rag.py` — RAG pipeline (may have manual spans)
-- `instrument.py` — Swappable instrumentation setup
-- `docker-compose.yml` — App container
-- `Dockerfile`
-- `pyproject.toml` — Dependencies
+### Required files
+
+- `docker-compose.yml` — App container(s)
+- `Dockerfile` — Build instructions
 - `.env.example` — Required env vars (no defaults for critical config)
-- `Makefile` — `make up`, `make down`, `make ingest`, `make ask`
-- `README.md` — Must include (use `experiments/openllmetry/README.md` as template):
+- `Makefile` — Must provide at minimum: `make up`, `make down`, `make ask`
+- `README.md` — Must include:
   - Flow diagram (mermaid)
   - Example traces with span breakdown table (columns: #, Span, Parent, Duration, Source, What it tells you, Sample attributes)
   - Span attributes (auto + manual) with examples
-  - Metrics dashboard section with image + per-panel table (columns: Panel, Metric, PromQL, What it tells you)
+  - Metrics dashboard section with per-panel table (columns: Panel, Metric, PromQL, What it tells you)
   - Metric dimensions appendix (list all dimensions per metric with examples)
   - Failure modes table (columns: #, Failure mode, Why?, How?, Where?, What?)
   - Usage instructions
-- `dashboard.json` (optional) — Pre-built dashboard for the configured sink
+- Dashboard JSON — Importable dashboard for the configured sink. Every metric documented in the README must have a corresponding panel.
+
+### Internal structure
+
+Up to the experiment. Python with FastAPI, Go with net/http, a shell script — whatever demonstrates the instrumentation clearly.
 
 ## Key Principles
 
@@ -57,17 +59,14 @@ Each experiment is a standalone, self-contained copy of the base app with instru
 
 4. **Fail fast on missing config.** All required env vars must be checked at startup. No hidden defaults.
 
-5. **Idempotent ingestion.** Re-ingesting the same file replaces existing chunks.
-
 ## Adding a New Experiment
 
-1. Copy `base/` to `experiments/<name>/`
-2. Add `instrument.py` with the new tool's setup
-3. Wire it into `app.py`
-4. Add manual spans to `rag.py` if needed
-5. Update `pyproject.toml` with new deps
-6. Write `README.md` following the structure above
-7. Test: `make up`, `make ingest`, `make ask`, verify data in sink
+1. Create `experiments/<name>/`
+2. Implement the application with instrumentation
+3. Add `Dockerfile`, `docker-compose.yml`, `.env.example`, `Makefile`
+4. Write `README.md` following the structure above
+5. Create a dashboard JSON with panels for all documented metrics
+6. Test: `make up`, `make ask`, verify data in sink
 
 ## Adding a New Sink
 
@@ -94,5 +93,4 @@ Each experiment should answer:
 5. **No `-d` (detached mode)** for app containers or infra `make up`. Logs should stream to console for visibility.
 6. **Don't assume sinks.** Apps send to the OTel collector gateway. Never hardcode SigNoz/Jaeger/etc. in app code or env examples.
 7. **Keep experiments independent.** Each experiment folder must work standalone without importing from `base/` or other experiments.
-8. **Visualize metrics, don't just list them.** Create importable dashboards for the configured sink (e.g. `dashboard.json` for SigNoz, `dashboard.grafana.json` for Grafana). Every metric documented in the README must have a corresponding dashboard panel.
-
+8. **Visualize metrics, don't just list them.** Create importable dashboards for the configured sink. Every metric documented in the README must have a corresponding dashboard panel.
