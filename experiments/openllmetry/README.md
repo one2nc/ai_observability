@@ -115,6 +115,7 @@ On every `openai.embeddings` and `openai.chat` span, these attributes are set au
 | Token Usage Rate | `gen_ai_client_token_usage_sum` | `sum(rate(gen_ai_client_token_usage_sum[1m])) by (gen_ai_operation_name)` | Tokens consumed per second, split by chat vs embeddings. Directly correlates to cost. |
 | LLM Call Duration (p95) | `gen_ai_client_operation_duration_seconds_bucket` | `histogram_quantile(0.95, sum(rate(..._bucket[1m])) by (le, gen_ai_operation_name))` | 95th percentile LLM call latency. Spikes indicate provider slowdowns. |
 | Token Usage by Model | `gen_ai_client_token_usage_sum` | `sum(rate(gen_ai_client_token_usage_sum[1m])) by (gen_ai_response_model)` | Which model is consuming the most tokens (cost attribution by model). |
+| Tokens per Request (Cost Runaway) | `gen_ai_client_token_usage_sum` / `http_server_duration_milliseconds_count` | `sum(rate(gen_ai_client_token_usage_sum[1m])) by (gen_ai_operation_name) / on() group_left sum(rate(http_server_duration_milliseconds_count[1m]))` | Tokens consumed per request. A rising trend means prompts are growing (e.g. more RAG chunks per query). Flat = stable. In the screenshot, `top_k` was increased from 5 to 50 to induce a visible spike — simulating a cost runaway scenario where retrieval returns more context per request. |
 | LLM Completions Total | `gen_ai_client_generation_choices_choice_total` | `sum(gen_ai_client_generation_choices_choice_total)` | Cumulative LLM completions generated. One per /ask request. |
 | Embedding Calls Total | `llm_openai_embeddings_vector_size_element_total` | `sum(...) / 1536` | Total embedding API calls made. |
 
@@ -130,6 +131,24 @@ On every `openai.embeddings` and `openai.chat` span, these attributes are set au
 | Response Size (bytes, avg) | `http_server_response_size_bytes_sum/count` | `sum(rate(..._sum[1m])) / sum(rate(..._count[1m]))` | Average response payload. Large /ask responses = verbose LLM output. |
 
 **Value of this setup:** With zero manual instrumentation code, you get full LLM cost visibility (tokens per model), latency monitoring, and HTTP-level metrics. Enough to answer "how much are we spending?" and "is the LLM slow?" without touching application code.
+
+## Model comparison: qwen3-coder-next vs claude-sonnet-4
+
+![Model comparison dashboard](images/model-comparison-qwen3-vs-claude.png)
+
+Switched `CHAT_MODEL` from `qwen3-coder-next` to `claude-sonnet-4` mid-session (both served through a local gateway on `host.docker.internal:8000/v1` — same network path, no provider routing differences).
+
+| Metric | qwen3-coder-next (21:05–21:15) | claude-sonnet-4 (21:20–21:27) | Observation |
+|--------|-------------------------------|------------------------------|-------------|
+| Request Duration p95 | ~8–10s | ~5.5–6s | Claude responds ~2x faster. Since both go through the same local gateway, this is model inference speed — not network or provider routing. |
+| Token Usage Rate (chat/input) | ~2000 tokens/sec | ~3500 tokens/sec | Higher rate for Claude despite same prompt text — Claude's tokenizer produces more tokens for the same content. |
+| Token Usage by Model | qwen3-coder-next/input dominant | claude-sonnet-4/input dominant | Clean handoff visible in the panel. Output tokens negligible for both (short answers). |
+| Tokens per Request (chat/input) | ~4000 tokens/req | ~6500 tokens/req | Same RAG context, same top_k — the jump is purely tokenizer difference. Same text costs 60% more input tokens on Claude. |
+| Response Size (bytes) | ~8780 | ~8840 | Negligible difference (~60 bytes). Answer text is similar length; response body is dominated by the returned source chunks. |
+
+**Key insight:** Swapping models changes cost (tokens per request) and latency even when the prompt, retrieval, and network path are identical. The tokenizer difference alone caused a 60% input token increase. In production, this would show up as a step-change in the "Tokens per Request (Cost Runaway)" panel — the exact signal it's designed to catch.
+
+**Reading the panels — units matter:** Token Usage Rate is tokens/second (a rate over time). Tokens per Request is tokens/request (total tokens consumed in a single API call). They're related: if qwen3 uses ~4300 tokens per request and each request takes ~2s, the rate is 4300÷2 ≈ 2150 tokens/sec — which matches the Token Usage Rate panel. Don't confuse the two: one tells you throughput, the other tells you per-call cost.
 
 ## Failure modes
 

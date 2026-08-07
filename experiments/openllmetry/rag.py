@@ -9,7 +9,16 @@ from pgvector.psycopg2 import register_vector
 
 log = logging.getLogger(__name__)
 
-REQUIRED_ENV = ["EMBED_API_KEY", "EMBED_BASE_URL", "EMBED_MODEL", "EMBED_DIM", "CHAT_API_KEY", "CHAT_BASE_URL", "CHAT_MODEL", "DATABASE_URL"]
+REQUIRED_ENV = [
+    "EMBED_API_KEY",
+    "EMBED_BASE_URL",
+    "EMBED_MODEL",
+    "EMBED_DIM",
+    "CHAT_API_KEY",
+    "CHAT_BASE_URL",
+    "CHAT_MODEL",
+    "DATABASE_URL",
+]
 
 
 def _check_env() -> None:
