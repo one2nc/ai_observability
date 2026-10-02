@@ -83,7 +83,17 @@ p95: 4.75
 - The histogram was created without explicit bucket boundaries
 - OpenTelemetry uses default boundaries designed for **latency in milliseconds**: `[0, 5, 10, 25, 50, 75, 100, 250, ...]`
 - Cosine similarity values (0.3–0.6) all fall into the **first bucket** (0–5)
-- `histogram_quantile()` performs **linear interpolation** within a bucket. With all observations between 0 and 5, the p50 interpolates to the midpoint of that range → **2.5**
+- `histogram_quantile()` doesn't know exact values — it only knows "N observations fell between bucket boundary X and bucket boundary Y." It assumes observations are **uniformly distributed** within that range and uses this linear interpolation formula:
+
+  ```
+  result = bucket_lower + (bucket_upper - bucket_lower) × quantile_fraction
+  ```
+
+  All observations land in the 0–5 bucket, so:
+  - **p50**: `0 + (5 - 0) × 0.50` = **2.5** (50% of the way from 0 to 5)
+  - **p95**: `0 + (5 - 0) × 0.95` = **4.75** (95% of the way from 0 to 5)
+
+  The math is correct — the assumption is wrong. Actual values are clustered between 0.3–0.6, not uniformly spread across 0–5. But Prometheus can't know that because the bucket is too coarse.
 - The metric is technically working — the data arrives in Prometheus — but the bucket granularity is too coarse for the value range
 
 ## Solution
@@ -142,8 +152,18 @@ similarity: 0.447
 similarity: 0.308  ← bottom chunk
 ```
 
-- **p50 = 0.517** — the median sits between the 2nd and 3rd chunk (0.514, 0.513). ✓
-- **p95 = 0.592** — close to the top chunk's score (0.574). ✓
+Same interpolation formula as before, but now buckets are 0.1 wide instead of 5 wide:
+
+```
+result = bucket_lower + (bucket_upper - bucket_lower) × fraction
+```
+
+- **p50 = 0.517** — lands in the 0.5–0.6 bucket, interpolated within that 0.1-wide range ✓
+- **p95 = 0.592** — lands in the 0.5–0.6 bucket, interpolated further along ✓
+
+The formula didn't change — the bucket granularity did. Narrower buckets → less room for interpolation error → useful results.
+
+Why were the broken values (2.5, 4.75) always exact, but the fixed values (0.517, 0.592) vary? Because in the broken case, all similarity scores (0.3–0.6) are less than 5, so every single observation — across all requests, across any time window — lands in the same 0–5 bucket. When one bucket holds 100% of observations, the fraction is always exactly the quantile: p50 = 0.50, p95 = 0.95. The math is locked. In the fixed case, observations spread across multiple 0.1-wide buckets (0.3–0.4, 0.4–0.5, 0.5–0.6). The fraction now depends on how many observations are in each bucket during the rate window — which changes with every request. The values above are what Prometheus reported at the time of the screenshot.
 
 ## Why removing `metrics_exporter` from Traceloop doesn't break OpenLLMetry metrics
 

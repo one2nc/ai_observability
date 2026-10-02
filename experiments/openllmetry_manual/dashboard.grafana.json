@@ -18,7 +18,7 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "description": "Tokens consumed per second by LLM calls, split by operation. Directly correlates to cost.",
+        "description": "Tokens consumed per second by LLM calls, split by operation and direction (input vs output). Directly correlates to cost.",
         "gridPos": {
           "h": 8,
           "w": 12,
@@ -27,8 +27,8 @@
         },
         "targets": [
           {
-            "expr": "sum(rate(gen_ai_client_token_usage_sum{service_name=\"ai-obs-openllmetry-manual\"}[1m])) by (gen_ai_operation_name)",
-            "legendFormat": "{{gen_ai_operation_name}}"
+            "expr": "sum(rate(gen_ai_client_token_usage_sum{service_name=\"ai-obs-openllmetry-manual\"}[1m])) by (gen_ai_operation_name, gen_ai_token_type)",
+            "legendFormat": "{{gen_ai_operation_name}}/{{gen_ai_token_type}}"
           }
         ],
         "title": "Token Usage Rate",
@@ -69,11 +69,32 @@
         },
         "targets": [
           {
-            "expr": "sum(rate(gen_ai_client_token_usage_sum{service_name=\"ai-obs-openllmetry-manual\"}[1m])) by (gen_ai_response_model)",
-            "legendFormat": "{{gen_ai_response_model}}"
+            "expr": "sum(rate(gen_ai_client_token_usage_sum{service_name=\"ai-obs-openllmetry-manual\"}[1m])) by (gen_ai_response_model, gen_ai_token_type)",
+            "legendFormat": "{{gen_ai_response_model}}/{{gen_ai_token_type}}"
           }
         ],
         "title": "Token Usage by Model",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "description": "Tokens consumed per request. Rising trend means prompts are growing (e.g. more RAG chunks per query) — cost runaway indicator.",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 9
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(gen_ai_client_token_usage_sum{service_name=\"ai-obs-openllmetry-manual\"}[1m])) by (gen_ai_operation_name, gen_ai_token_type) / on() group_left sum(rate(http_server_duration_milliseconds_count{service_name=\"ai-obs-openllmetry-manual\"}[1m]))",
+            "legendFormat": "tokens/req {{gen_ai_operation_name}}/{{gen_ai_token_type}}"
+          }
+        ],
+        "title": "Tokens per Request (Cost Runaway)",
         "type": "timeseries"
       },
       {
@@ -85,8 +106,8 @@
         "gridPos": {
           "h": 8,
           "w": 6,
-          "x": 12,
-          "y": 9
+          "x": 0,
+          "y": 17
         },
         "targets": [
           {
@@ -106,8 +127,8 @@
         "gridPos": {
           "h": 8,
           "w": 6,
-          "x": 18,
-          "y": 9
+          "x": 6,
+          "y": 17
         },
         "targets": [
           {
@@ -124,7 +145,7 @@
           "h": 1,
           "w": 24,
           "x": 0,
-          "y": 17
+          "y": 25
         },
         "title": "Manual \u2014 RAG Pipeline Metrics (custom instrumentation)",
         "type": "row"
@@ -139,7 +160,7 @@
           "h": 8,
           "w": 12,
           "x": 0,
-          "y": 18
+          "y": 26
         },
         "targets": [
           {
@@ -148,10 +169,18 @@
           },
           {
             "expr": "histogram_quantile(0.95, sum(rate(rag_retrieve_similarity_score_bucket{service_name=\"ai-obs-openllmetry-manual\"}[1m])) by (le))",
-            "legendFormat": "p95 similarity"
+            "legendFormat": "p95 similarity (≈ max)"
+          },
+          {
+            "expr": "histogram_quantile(0.05, sum(rate(rag_retrieve_similarity_score_bucket{service_name=\"ai-obs-openllmetry-manual\"}[1m])) by (le))",
+            "legendFormat": "p05 similarity (≈ min)"
+          },
+          {
+            "expr": "sum(rate(rag_retrieve_similarity_score_sum{service_name=\"ai-obs-openllmetry-manual\"}[1m])) / sum(rate(rag_retrieve_similarity_score_count{service_name=\"ai-obs-openllmetry-manual\"}[1m]))",
+            "legendFormat": "avg similarity"
           }
         ],
-        "title": "Retrieval Similarity (p50 / p95)",
+        "title": "Retrieval Similarity (min / avg / p50 / max)",
         "type": "timeseries"
       },
       {
@@ -164,7 +193,7 @@
           "h": 8,
           "w": 12,
           "x": 12,
-          "y": 18
+          "y": 26
         },
         "targets": [
           {
@@ -185,7 +214,7 @@
           "h": 8,
           "w": 12,
           "x": 0,
-          "y": 26
+          "y": 34
         },
         "targets": [
           {
@@ -202,7 +231,7 @@
           "h": 1,
           "w": 24,
           "x": 0,
-          "y": 26
+          "y": 42
         },
         "title": "FastAPI \u2014 HTTP Metrics (auto-instrumented)",
         "type": "row"
@@ -217,7 +246,7 @@
           "h": 8,
           "w": 12,
           "x": 0,
-          "y": 27
+          "y": 43
         },
         "targets": [
           {
@@ -238,7 +267,7 @@
           "h": 8,
           "w": 12,
           "x": 12,
-          "y": 27
+          "y": 43
         },
         "targets": [
           {
@@ -259,7 +288,7 @@
           "h": 8,
           "w": 12,
           "x": 0,
-          "y": 35
+          "y": 51
         },
         "targets": [
           {
@@ -280,7 +309,7 @@
           "h": 8,
           "w": 12,
           "x": 12,
-          "y": 35
+          "y": 51
         },
         "targets": [
           {
@@ -301,7 +330,7 @@
           "h": 8,
           "w": 12,
           "x": 0,
-          "y": 43
+          "y": 59
         },
         "targets": [
           {
@@ -322,7 +351,7 @@
           "h": 8,
           "w": 12,
           "x": 12,
-          "y": 43
+          "y": 59
         },
         "targets": [
           {

@@ -172,6 +172,31 @@ POST /ingest (1.47s)
 - "Which user is burning tokens?" → `user.id` attribute on traces
 - "Is the vector search the bottleneck?" → `rag.vector_search` span duration in traces
 
+## Experiment: irrelevant queries and similarity drop
+
+![Irrelevant queries dashboard](images/irrelevant-queries-similarity-drop.png)
+
+Sent irrelevant queries (e.g. "why is melody chocolatey?") whose answers don't exist in the knowledge base, then switched back to relevant queries.
+
+| Metric | Relevant queries | Irrelevant queries | Why |
+|--------|-----------------|-------------------|-----|
+| Retrieval Similarity (avg/p50) | ~0.5–0.6 | drops to ~0.1–0.2 | pgvector still returns top_k chunks, but none match the query — low cosine similarity across the board. |
+| Response Size (bytes) | ~8000+ | drops | LLM receives low-relevance context → responds with a short "I don't have enough information" instead of a detailed answer → smaller JSON response. |
+| Request Size (bytes) | baseline | drops | Irrelevant queries happen to be shorter strings ("why is melody chocolatey?" vs "What does the kube-scheduler do?") → smaller request payload. |
+| Token Usage Rate | baseline | drops slightly | Shorter prompts (less relevant context text) + shorter answers = fewer tokens consumed per request. |
+
+**Key insight:** The Retrieval Similarity panel is the early warning. Response size and token usage drops are symptoms — similarity drop is the root cause signal. In production, alert on sustained similarity drop (p50 below threshold) to catch knowledge base gaps before users notice degraded answers.
+
+![Tokens per request during irrelevant queries](images/irrelevant-queries-tokens-per-request.png)
+
+The Tokens per Request panel confirms the mechanism:
+- **chat/input** drops slightly (3560 → 3500): retrieved chunks are the same size regardless of relevance, but marginally less text in low-scoring fragments.
+- **chat/output** drops dramatically (80 → ~10): the LLM has nothing useful to say with irrelevant context, so it responds with a short "I don't have enough information" — ~10 output tokens vs ~80 for a real answer.
+
+The output token drop is the clearest signal that the LLM is failing to produce useful answers.
+
+**What this demonstrates vs plain openllmetry:** Without manual retrieval spans, you'd only see the response size drop and have no idea why. The similarity histogram makes the root cause visible in Grafana — no need to dig through individual traces.
+
 ## Failure modes
 
 See [failure_modes.md](failure_modes.md).
