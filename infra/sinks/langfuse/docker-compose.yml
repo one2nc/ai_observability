@@ -181,7 +181,12 @@ services:
 
 volumes:
   langfuse_postgres_data:
+    name: ai-obs-langfuse_langfuse_postgres_data
   langfuse_clickhouse_data:
+    name: ai-obs-langfuse_langfuse_clickhouse_data
   langfuse_clickhouse_logs:
+    name: ai-obs-langfuse_langfuse_clickhouse_logs
   langfuse_minio_data:
+    name: ai-obs-langfuse_langfuse_minio_data
   langfuse_redis_data:
+    name: ai-obs-langfuse_langfuse_redis_data

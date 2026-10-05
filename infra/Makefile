@@ -1,4 +1,4 @@
-.PHONY: up down sink-up sink-down ai-gateway-up ai-gateway-down langfuse-up langfuse-down status clean config check-signoz-traces check-signoz-logs check-signoz-metrics check-grafana check-bifrost check-langfuse langfuse-keys
+.PHONY: up down sink-up sink-down ai-gateway-up ai-gateway-down langfuse-up langfuse-down status clean config check-signoz-traces check-signoz-logs check-signoz-metrics check-grafana check-bifrost check-langfuse check-phoenix langfuse-keys
 
 INFRA_CONFIG ?= .env
 
@@ -10,10 +10,11 @@ SIGNOZ_COMPOSE_DIR := .vendor/signoz/deploy/docker
 SIGNOZ_OVERRIDE := sinks/signoz/docker-compose.yml
 GRAFANA_COMPOSE_DIR := sinks/grafana
 LANGFUSE_COMPOSE_DIR := sinks/langfuse
+PHOENIX_COMPOSE_DIR := sinks/phoenix
 OTEL_GATEWAY_CONFIG := config.$(SINK).yaml
 BIFROST_COMPOSE_DIR := bifrost
 
-SUPPORTED_SINKS := signoz grafana langfuse
+SUPPORTED_SINKS := signoz grafana langfuse phoenix
 SUPPORTED_AI_GATEWAYS := none bifrost
 
 # Langfuse credentials. These defaults match the LANGFUSE_INIT_* headless
@@ -28,6 +29,9 @@ LANGFUSE_HOST ?= http://localhost:$(LANGFUSE_PORT)
 # tr -d '\n' because GNU base64 wraps at 76 columns and this input is longer.
 LANGFUSE_OTLP_ENDPOINT ?= http://host.docker.internal:$(LANGFUSE_PORT)/api/public/otel
 LANGFUSE_OTLP_AUTH := $(shell printf '%s:%s' '$(LANGFUSE_PUBLIC_KEY)' '$(LANGFUSE_SECRET_KEY)' | base64 | tr -d '\n')
+
+PHOENIX_PORT ?= 6006
+PHOENIX_OTLP_ENDPOINT ?= http://host.docker.internal:$(PHOENIX_PORT)
 
 ifneq ($(filter $(SINK),$(SUPPORTED_SINKS)),$(SINK))
 $(error Unsupported SINK=$(SINK). Supported values: $(SUPPORTED_SINKS))
@@ -48,6 +52,13 @@ export LANGFUSE_PUBLIC_KEY
 export LANGFUSE_SECRET_KEY
 export LANGFUSE_OTLP_ENDPOINT
 export LANGFUSE_OTLP_AUTH
+export PHOENIX_IMAGE
+export PHOENIX_PORT
+export PHOENIX_OTLP_ENDPOINT
+export PHOENIX_ENABLE_AUTH
+export PHOENIX_SECRET
+export PHOENIX_ADMIN_SECRET
+export PHOENIX_DEFAULT_ADMIN_INITIAL_PASSWORD
 
 up: ai-gateway-up sink-up
 	cd postgres && docker compose up -d
@@ -80,6 +91,9 @@ endif
 ifeq ($(SINK),langfuse)
 	$(MAKE) langfuse-up
 endif
+ifeq ($(SINK),phoenix)
+	cd $(PHOENIX_COMPOSE_DIR) && docker compose up -d
+endif
 
 sink-down:
 ifeq ($(SINK),signoz)
@@ -90,6 +104,9 @@ ifeq ($(SINK),grafana)
 endif
 ifeq ($(SINK),langfuse)
 	$(MAKE) langfuse-down
+endif
+ifeq ($(SINK),phoenix)
+	cd $(PHOENIX_COMPOSE_DIR) && docker compose down
 endif
 
 # Langfuse is also usable *alongside* another sink: the Langfuse SDK talks to
@@ -119,6 +136,9 @@ endif
 ifeq ($(SINK),langfuse)
 	cd $(LANGFUSE_COMPOSE_DIR) && docker compose ps
 endif
+ifeq ($(SINK),phoenix)
+	cd $(PHOENIX_COMPOSE_DIR) && docker compose ps
+endif
 
 clean:
 	cd otel-collector-gateway && docker compose down -v
@@ -134,6 +154,9 @@ ifeq ($(SINK),grafana)
 endif
 ifeq ($(SINK),langfuse)
 	cd $(LANGFUSE_COMPOSE_DIR) && docker compose down -v
+endif
+ifeq ($(SINK),phoenix)
+	cd $(PHOENIX_COMPOSE_DIR) && docker compose down -v
 endif
 
 check-signoz-traces:
@@ -165,6 +188,12 @@ check-langfuse:
 		"$(LANGFUSE_HOST)/api/public/traces?limit=100" \
 		| python3 -c "import json,sys; print(len(json.load(sys.stdin).get('data',[])))"
 
+check-phoenix:
+	@curl -fsS http://localhost:$(PHOENIX_PORT)/healthz >/dev/null && echo "Phoenix health OK"
+	@curl -fsS -H "Authorization: Bearer $(PHOENIX_ADMIN_SECRET)" \
+		http://localhost:$(PHOENIX_PORT)/v1/projects >/dev/null \
+		&& echo "Phoenix API reachable with admin secret"
+
 langfuse-keys:
 	@echo "LANGFUSE_HOST=$(LANGFUSE_HOST)"
 	@echo "LANGFUSE_PUBLIC_KEY=$(LANGFUSE_PUBLIC_KEY)"
@@ -178,6 +207,9 @@ config:
 	@echo "BIFROST_PORT=$${BIFROST_PORT:-8000}"
 	@echo "LANGFUSE_HOST=$(LANGFUSE_HOST)"
 	@echo "LANGFUSE_OTLP_ENDPOINT=$(LANGFUSE_OTLP_ENDPOINT)"
+	@echo "PHOENIX_PORT=$(PHOENIX_PORT)"
+	@echo "PHOENIX_OTLP_ENDPOINT=$(PHOENIX_OTLP_ENDPOINT)"
+	@echo "PHOENIX_ENABLE_AUTH=$${PHOENIX_ENABLE_AUTH:-true}"
 	@echo "OTEL_EXPORTER_OTLP_ENDPOINT=$${OTEL_EXPORTER_OTLP_ENDPOINT:-http://host.docker.internal:4418}"
 	@echo "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=$${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-$${OTEL_EXPORTER_OTLP_ENDPOINT:-http://host.docker.internal:4418}/v1/traces}"
 	@echo "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=$${OTEL_EXPORTER_OTLP_METRICS_ENDPOINT:-$${OTEL_EXPORTER_OTLP_ENDPOINT:-http://host.docker.internal:4418}/v1/metrics}"

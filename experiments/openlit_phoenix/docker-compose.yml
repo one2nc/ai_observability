@@ -1,0 +1,13 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-obs-openlit-phoenix
+    env_file: .env
+    ports:
+      - "8006:8006"
+    environment:
+      PORT: "8006"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

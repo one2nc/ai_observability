@@ -43,6 +43,28 @@ ClickHouse, Redis and the worker stay on the internal network.
 | MinIO API | 9190 | Needed for media upload presigned URLs |
 | MinIO console | 9191 | Loopback only |
 
+## Persistence
+
+Langfuse state persists across normal infra restarts. The Compose stack uses
+named Docker volumes for Postgres, ClickHouse, Redis and MinIO:
+
+| Volume | Stores |
+|--------|--------|
+| `ai-obs-langfuse_langfuse_postgres_data` | Langfuse relational state, projects, users and API keys |
+| `ai-obs-langfuse_langfuse_clickhouse_data` | Events, traces and observations |
+| `ai-obs-langfuse_langfuse_minio_data` | Event/media blobs |
+| `ai-obs-langfuse_langfuse_redis_data` | Redis state |
+
+These survive:
+
+```bash
+make langfuse-down
+make langfuse-up
+```
+
+and also survive `make down SINK=langfuse`. Only `make clean SINK=langfuse` or
+manual `docker compose down -v` removes them.
+
 ## Credentials
 
 The stack bootstraps itself headlessly via `LANGFUSE_INIT_*`, so the public and

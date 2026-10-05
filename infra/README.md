@@ -10,7 +10,7 @@ graph LR
     Bifrost -->|Provider API| Provider[LLM Provider]
     App -->|OTLP :4418| Gateway[OTel Collector Gateway]
     Bifrost -->|OTLP :4418| Gateway
-    Gateway -->|OTLP / Prometheus scrape| Sink[Sink: SigNoz, Grafana stack or Langfuse]
+    Gateway -->|OTLP / Prometheus scrape| Sink[Sink: SigNoz, Grafana stack, Langfuse or Phoenix]
     App -->|SQL :5432| PG[pgvector]
     App -.->|Langfuse SDK :3400| LF[Langfuse]
 ```
@@ -34,7 +34,8 @@ infra/
 │   ├── docker-compose.yml
 │   ├── config.signoz.yaml
 │   ├── config.grafana.yaml
-│   └── config.langfuse.yaml
+│   ├── config.langfuse.yaml
+│   └── config.phoenix.yaml
 ├── sinks/
 │   ├── grafana/
 │   │   ├── docker-compose.yml
@@ -43,6 +44,9 @@ infra/
 │   │   ├── tempo.yaml
 │   │   └── provisioning/
 │   ├── langfuse/
+│   │   ├── docker-compose.yml
+│   │   └── README.md
+│   ├── phoenix/
 │   │   ├── docker-compose.yml
 │   │   └── README.md
 │   └── signoz/
@@ -58,7 +62,7 @@ cp .env.example .env
 # edit .env
 make config                # print resolved non-secret config
 make up                    # starts configured gateway, sink, Postgres, OTel gateway
-make down
+make down                  # stops containers, preserves named volumes/data
 make clean                 # removes volumes
 make status
 ```
@@ -89,12 +93,14 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4418
 | SigNoz UI | 3301 | Observability UI |
 | Grafana UI | 3000 | Grafana dashboards and Explore |
 | Langfuse UI | 3400 | LLM traces, prompts, scores, datasets |
+| Phoenix UI / OTLP HTTP traces | 6006 | LLM trace analysis UI and `/v1/traces` collector |
 | Langfuse MinIO API | 9190 | Media/event blob storage |
 | Prometheus | 9091 | Metrics backend |
 | Loki | 3100 | Logs backend |
 | Tempo | 3200 | Traces backend |
 | Tempo OTLP gRPC | 14317 | Gateway export target |
 | Tempo OTLP HTTP | 14318 | Gateway export target |
+| Phoenix OTLP gRPC | 14317 | Phoenix trace collector; use only when Tempo is not running |
 
 ## First-run (SigNoz)
 
@@ -156,6 +162,48 @@ make langfuse-up         # traces, prompts, scores, datasets
 details, including the port remapping away from upstream's defaults, are in
 [sinks/langfuse/README.md](sinks/langfuse/README.md).
 
+Langfuse state is stored in explicitly named Docker volumes for Postgres,
+ClickHouse, Redis and MinIO. Projects, users, API keys, traces and blobs survive
+`make down SINK=langfuse` and `make langfuse-down`; only `make clean SINK=langfuse`
+or manual `docker compose down -v` removes those volumes.
+
+## Phoenix sink
+
+```bash
+make up SINK=phoenix
+```
+
+Open http://localhost:6006. Phoenix receives traces through the gateway and is
+best for LLM span inspection and OpenInference-style trace analysis.
+
+Authentication is enabled for the local Phoenix sink so you can manage Secrets
+and Custom AI Providers. The default local admin is:
+
+```text
+email: admin@localhost
+password: admin
+```
+
+The password comes from `PHOENIX_DEFAULT_ADMIN_INITIAL_PASSWORD` and is only
+used when the default admin account is first created.
+
+Phoenix sets `PHOENIX_WORKING_DIR=/mnt/data` and stores data in the named Docker
+volume `phoenix_phoenix-data`. Traces, admin login state, secrets and custom
+provider settings survive `make down` and the next `make up SINK=phoenix`. Use
+`make clean SINK=phoenix` only when you intentionally want to delete Phoenix
+data and recreate the local instance from scratch.
+
+| Signal | Gateway exporter | Backend |
+|--------|------------------|---------|
+| Traces | `otlphttp/phoenix` | Phoenix `${PHOENIX_OTLP_ENDPOINT}/v1/traces` with `PHOENIX_ADMIN_SECRET` bearer auth |
+| Metrics | `prometheus` | Kept on `:8889` for scraping; Phoenix is not used as the app metrics store |
+| Logs | `debug` | Collector stdout only |
+
+Because Phoenix is not a general metrics/log dashboard sink in this repo, use
+`SINK=grafana` or `SINK=signoz` when an experiment needs importable metric
+dashboards or searchable logs. Full details are in
+[sinks/phoenix/README.md](sinks/phoenix/README.md).
+
 ## Bifrost gateway
 
 Configure Bifrost in `.enc`:
@@ -168,7 +216,12 @@ bifrost_api_key: sk-...
 
 Then run `make up`. The generated Bifrost config lives under `bifrost/data/config.json`, which is gitignored. Secrets are referenced as environment variables and are not written into config JSON. If `bifrost/data/encryption_key` does not exist, the startup script generates one.
 
-Bifrost runs with a local SQLite config store because current Bifrost server bootstrap requires it for governance routes. The startup script treats `.enc` as source of truth: if the generated config changes, the old `bifrost/data/config.db` is backed up and Bifrost bootstraps a fresh config store.
+Bifrost runs with a local SQLite config store because current Bifrost server
+bootstrap requires it for governance routes. The config and logs stores live in
+`infra/bifrost/data/`, so virtual keys and gateway data survive `make down` and
+the next `make up`. Use `make clean` or
+`BIFROST_RESET_CONFIG_STORE=true make up` only when you intentionally want to
+start Bifrost from a fresh config store.
 
 ### Create a Bifrost virtual key
 
@@ -239,4 +292,5 @@ make check-signoz-metrics
 make check-grafana
 make check-bifrost
 make check-langfuse
+make check-phoenix
 ```
