@@ -4,21 +4,47 @@ This document explains the Langfuse concepts used by
 `experiments/langfuse_introduction` and maps them to the concrete traces emitted
 by the stage scripts in `src/`.
 
+The experiment is a chatbot built up in numbered stages, each adding one Langfuse
+feature on top of the last:
+
+- Stage 1: tracing
+- Stage 2: sessions and users
+- Stage 3: a retrieval step
+- Stage 4: prompt management
+- Stage 5: scores
+- Stage 6: an LLM judge
+- Stage 7: datasets and experiments
+
+The "Stage N" references below point at those. The [README](../README.md) has
+the full list and how to run them.
+
 ## Feature theory and use cases
 
-Langfuse is not just a trace viewer. Its strongest features sit around the LLM
-product loop: observe a run, understand the conversation context, change the
-prompt, collect quality labels, then evaluate changes against repeatable data.
+Langfuse covers the whole LLM product loop, not only trace viewing: you observe
+a run, see its conversation context, version the prompt, collect quality labels,
+then evaluate changes against a fixed dataset.
+
+These features nest. The containment, outermost to innermost:
+
+- A **session** contains many **traces** (one conversation, many turns).
+- A **trace** contains **observations**: zero or more **spans** and
+  **generations**, which can themselves nest into a tree.
+- A **generation** is one kind of observation (an LLM call); a **span** is the
+  other (non-LLM work). Both live inside a trace.
+- A **score** is attached to a trace or an observation; it is a label on them,
+  not contained in the tree.
+- **Users**, **prompts**, **datasets** and **experiments** sit outside this tree
+  and reference it (a trace carries a user id, links a prompt version, and so on).
 
 | Feature | Theory | Example use case in this experiment |
 |---|---|---|
-| Traces | A trace is one logical user interaction. It records latency, inputs, outputs, model metadata, token usage and nested steps. | Stage 1 records each support-bot turn as `chat-turn`, so you can inspect exactly what the model saw and returned. |
-| Generations | A generation is the LLM-specific child observation inside a trace. It carries the model, messages, output and token usage that drive cost. | `llm-response` shows whether the answer changed because the prompt changed, the model changed, or the input context changed. |
-| Spans | Spans represent non-LLM work around the model call, such as retrieval, tools, guards or rerankers. | Stage 3 adds `retrieve-context`, making it obvious whether bad answers came from missing context or the generation itself. |
-| Sessions | Sessions group multiple traces into one conversation or workflow. They answer questions a single trace cannot. | Stage 2 uses one `session_id` per CLI run, so Langfuse can replay the full chat instead of isolated turns. |
+| Traces | A trace is one logical user interaction, and the container for everything below it: its spans and generations. It records latency, inputs, outputs, model metadata, token usage and nested steps. | Stage 1 records each support-bot turn as `chat-turn`, so you can inspect exactly what the model saw and returned. |
+| Generations | A generation is the record of the LLM call itself, sitting inside the trace as a child observation. It stores the model, the messages sent, the reply, and the token counts (which is what cost is billed on). | `llm-response` shows whether the answer changed because the prompt changed, the model changed, or the input context changed. |
+| Spans | A span is the other kind of child observation inside a trace: non-LLM work around the model call, such as retrieval, tools, guards or rerankers. | Stage 3 adds `retrieve-context`, making it obvious whether bad answers came from missing context or the generation itself. |
+| Sessions | A session is the level above the trace: it groups many traces into one conversation or workflow, answering questions a single trace cannot. | Stage 2 uses one `session_id` per CLI run, so Langfuse can replay the full chat instead of isolated turns. |
 | Users | User IDs let you segment behavior and quality by customer, tenant, plan or internal tester. | The demo tags everything as `demo-user`; a real support bot would use account/user IDs to debug account-specific failures. |
-| Prompt Management | Prompts become versioned runtime configuration instead of hardcoded strings. Traces link back to the prompt version used. | Stage 4 fetches `support-system-prompt` from Langfuse; edit it in the UI and compare traces without rebuilding the app. |
-| Scores | Scores are quality labels attached to traces or observations. They can come from humans, code, or evaluator jobs. | Stage 5 writes a `user-feedback` BOOLEAN score, turning subjective feedback into filterable data. |
+| Prompt Management | Prompts become versioned runtime configuration instead of hardcoded strings. A trace links to the prompt version it used. | Stage 4 fetches `support-system-prompt` from Langfuse; edit it in the UI and compare traces without rebuilding the app. |
+| Scores | Scores are quality labels attached to a trace or one of its observations. They can come from humans, code, or evaluator jobs. | Stage 5 writes a `user-feedback` BOOLEAN score, turning subjective feedback into filterable data. |
 | LLM-as-a-Judge | A managed evaluator uses another model to score trace quality at scale. It is useful, but it creates extra model calls and cost. | Stage 6 can judge whether support answers are grounded, concise and helpful on newly arriving traces. |
 | Datasets | A dataset is a stable set of inputs and expected outputs for repeatable evaluation. | Stage 7 creates `support-qa` with known support questions and expected substrings. |
 | Experiments | Experiments run a task over a dataset and compare scored runs across prompt/model/code changes. | Run Stage 7 before and after changing the prompt or model, then compare `contains-expected` and `concise` scores. |
