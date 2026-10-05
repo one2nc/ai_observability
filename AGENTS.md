@@ -13,8 +13,10 @@ base/                              # Uninstrumented RAG app (reference)
 infra/                             # Shared infrastructure
 ├── postgres/                      # pgvector
 ├── otel-collector-gateway/        # Generic OTel collector (apps send here)
-├── sinks/                         # Backends (signoz, victoriametrics, etc.)
-│   └── signoz/
+├── sinks/                         # Backends (signoz, grafana, langfuse, etc.)
+│   ├── signoz/
+│   ├── grafana/
+│   └── langfuse/                  # LLM eval backend; traces only, no metrics
 └── .vendor/                       # Cloned repos (gitignored)
 
 experiments/
@@ -22,6 +24,8 @@ experiments/
 ├── openllmetry/                   # Traceloop auto-instrumentation
 ├── openllmetry_manual/            # Auto + manual spans + custom metrics
 ├── bifrost/                       # Bifrost AI gateway telemetry
+├── langfuse_introduction/         # Langfuse feature tour (orientation)
+├── langfuse_openai_agents/        # Langfuse-only observability for the agent
 └── ...                            # Add more experiments here
 ```
 
@@ -44,6 +48,7 @@ Each experiment is standalone and self-contained. Language, framework, and inter
   - Failure modes table (columns: #, Failure mode, Why?, How?, Where?, What?)
   - Usage instructions
 - Dashboard JSON — Importable dashboard for the configured sink. Every metric documented in the README must have a corresponding panel.
+  - Exception: an experiment whose backend has no metrics store (e.g. `langfuse_*`) ships no dashboard. It must say so explicitly in the Metrics dashboard section and explain what replaces it.
 
 ### Internal structure
 
@@ -52,6 +57,7 @@ Up to the experiment. Python with FastAPI, Go with net/http, a shell script — 
 ## Key Principles
 
 1. **Apps don't know about sinks.** Every experiment sends OTLP to `host.docker.internal:4418` (the gateway). The gateway routes to whatever sink is configured.
+   - Documented exception: the `langfuse_*` experiments export directly to Langfuse, because prompt management, scores and datasets are Langfuse API features with no OTel equivalent. The coupling is the point being measured, not an oversight. Traces alone can still be routed through the gateway with `SINK=langfuse`.
 
 2. **Sinks are swappable.** Add a new sink in `infra/sinks/<name>/`. Update the gateway config. No app changes.
 

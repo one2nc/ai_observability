@@ -1,0 +1,11 @@
+[project]
+name = "ai-observability-langfuse-hello"
+version = "0.1.0"
+description = "Langfuse hello world: one feature per stage against a self-hosted Langfuse."
+requires-python = ">=3.11"
+dependencies = [
+  "langfuse>=4,<5",
+  "openai>=1.40.0",
+  "python-dotenv>=1,<2",
+  "urllib3>=2",
+]

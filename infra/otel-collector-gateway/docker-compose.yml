@@ -6,6 +6,10 @@ services:
     command: ["--config=/etc/otel/config.yaml"]
     volumes:
       - ./${OTEL_GATEWAY_CONFIG:-config.signoz.yaml}:/etc/otel/config.yaml:ro
+    environment:
+      # Only consumed by config.langfuse.yaml; harmless for the other sinks.
+      LANGFUSE_OTLP_ENDPOINT: ${LANGFUSE_OTLP_ENDPOINT:-}
+      LANGFUSE_OTLP_AUTH: ${LANGFUSE_OTLP_AUTH:-}
     ports:
       - "4417:4317"
       - "4418:4318"
