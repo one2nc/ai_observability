@@ -1,0 +1,27 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-obs-langfuse-openai-agents
+    env_file: .env
+    ports:
+      - "8006:8006"
+    environment:
+      PORT: "8006"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # One-shot dataset experiment run. Started only by `make eval`, never by `up`.
+  eval:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-obs-langfuse-openai-agents-eval
+    command: ["python", "-u", "experiment_eval.py"]
+    env_file: .env
+    environment:
+      APP_URL: "http://host.docker.internal:8006"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    profiles: ["eval"]

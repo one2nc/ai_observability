@@ -1,0 +1,18 @@
+# Each stage is a one-shot interactive CLI, not a long-running server, so this is
+# meant for `docker compose run` (see the Makefile) rather than `docker compose up`.
+# Langfuse itself lives in infra/sinks/langfuse.
+#
+# One service, not one per stage: the stage file is passed as the command. Seven
+# services sharing a single `image:` tag race each other on export during build.
+
+services:
+  stage:
+    image: ai-obs-langfuse-introduction:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: .env
+    stdin_open: true
+    tty: true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

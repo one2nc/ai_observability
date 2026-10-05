@@ -1,0 +1,73 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  # Self-monitoring
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: otel-gateway
+          scrape_interval: 30s
+          static_configs:
+            - targets: ["localhost:8888"]
+
+processors:
+  batch:
+    send_batch_size: 500
+    timeout: 5s
+
+exporters:
+  # Langfuse ingests OTLP traces only, at /api/public/otel (the exporter
+  # appends /v1/traces). Auth is HTTP Basic with base64(public_key:secret_key),
+  # computed by infra/Makefile and passed in as LANGFUSE_OTLP_AUTH.
+  otlphttp/langfuse:
+    endpoint: ${env:LANGFUSE_OTLP_ENDPOINT}
+    headers:
+      Authorization: "Basic ${env:LANGFUSE_OTLP_AUTH}"
+    tls:
+      insecure: true
+
+  # Prometheus scrapes this for metrics. Langfuse has no metrics store, so
+  # metrics stay on the gateway rather than being dropped outright — see the
+  # note in infra/sinks/langfuse/README.md.
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    send_timestamps: true
+    metric_expiration: 30m
+    resource_to_telemetry_conversion:
+      enabled: true
+
+  debug:
+    verbosity: basic
+
+service:
+  telemetry:
+    metrics:
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
+    logs:
+      level: info
+
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp/langfuse, debug]
+    metrics:
+      receivers: [otlp, prometheus]
+      processors: [batch]
+      exporters: [prometheus]
+    # Langfuse has no log ingestion endpoint. Logs are surfaced on the
+    # collector's stdout only; use SINK=grafana or SINK=signoz for real logs.
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]

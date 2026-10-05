@@ -10,8 +10,9 @@ graph LR
     Bifrost -->|Provider API| Provider[LLM Provider]
     App -->|OTLP :4418| Gateway[OTel Collector Gateway]
     Bifrost -->|OTLP :4418| Gateway
-    Gateway -->|OTLP / Prometheus scrape| Sink[Sink: SigNoz or Grafana stack]
+    Gateway -->|OTLP / Prometheus scrape| Sink[Sink: SigNoz, Grafana stack or Langfuse]
     App -->|SQL :5432| PG[pgvector]
+    App -.->|Langfuse SDK :3400| LF[Langfuse]
 ```
 
 Apps always send telemetry to the OTel gateway. The monitoring sink and optional AI gateway are selected from `.env`.
@@ -32,7 +33,8 @@ infra/
 ├── otel-collector-gateway/
 │   ├── docker-compose.yml
 │   ├── config.signoz.yaml
-│   └── config.grafana.yaml
+│   ├── config.grafana.yaml
+│   └── config.langfuse.yaml
 ├── sinks/
 │   ├── grafana/
 │   │   ├── docker-compose.yml
@@ -40,6 +42,9 @@ infra/
 │   │   ├── prometheus.yml
 │   │   ├── tempo.yaml
 │   │   └── provisioning/
+│   ├── langfuse/
+│   │   ├── docker-compose.yml
+│   │   └── README.md
 │   └── signoz/
 │       ├── bootstrap.sh
 │       └── docker-compose.yml (port override)
@@ -83,6 +88,8 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4418
 | OTel Gateway app metrics | 8889 | Prometheus scrape target for OTLP metrics |
 | SigNoz UI | 3301 | Observability UI |
 | Grafana UI | 3000 | Grafana dashboards and Explore |
+| Langfuse UI | 3400 | LLM traces, prompts, scores, datasets |
+| Langfuse MinIO API | 9190 | Media/event blob storage |
 | Prometheus | 9091 | Metrics backend |
 | Loki | 3100 | Logs backend |
 | Tempo | 3200 | Traces backend |
@@ -117,6 +124,37 @@ The gateway config for this sink is `otel-collector-gateway/config.grafana.yaml`
 | Traces | `otlphttp/tempo` | Tempo |
 | Metrics | `prometheus` | Prometheus scrapes `host.docker.internal:8889` |
 | Logs | `otlphttp/loki` | Loki |
+
+## Langfuse sink
+
+```bash
+make up SINK=langfuse
+```
+
+Open http://localhost:3400. The stack bootstraps its own org, project, user and
+API keys headlessly, so there is no signup step — `make langfuse-keys` prints
+the credentials to paste into an experiment `.env`.
+
+Langfuse accepts **traces only**. It has no metrics or logs store, so the
+`dashboards/*.json` files in the experiments do not apply to this sink:
+
+| Signal | Gateway exporter | Backend |
+|--------|------------------|---------|
+| Traces | `otlphttp/langfuse` | Langfuse `/api/public/otel/v1/traces` |
+| Metrics | `prometheus` | Kept on `:8889` for scraping; Langfuse stores none |
+| Logs | `debug` | Collector stdout only |
+
+Because of that, Langfuse is often best run *next to* another sink rather than
+in place of one:
+
+```bash
+make up SINK=grafana     # metrics + logs dashboards
+make langfuse-up         # traces, prompts, scores, datasets
+```
+
+`make langfuse-up` / `make langfuse-down` are independent of `SINK`. Full
+details, including the port remapping away from upstream's defaults, are in
+[sinks/langfuse/README.md](sinks/langfuse/README.md).
 
 ## Bifrost gateway
 
@@ -200,4 +238,5 @@ make check-signoz-logs
 make check-signoz-metrics
 make check-grafana
 make check-bifrost
+make check-langfuse
 ```
