@@ -1,8 +1,8 @@
 # Self-hosted Langfuse v3 as an ai_observability sink.
 #
 # Adapted from the official langfuse/langfuse compose file with one important
-# change: only the web UI and the MinIO API are published to the host. The
-# upstream file publishes Postgres on 5432, MinIO's console on 9091 and the UI
+# change: only the web UI and the local S3 API are published to the host. The
+# upstream file publishes Postgres on 5432, object-storage ports and the UI
 # on 3000, all of which collide with this repo's pgvector, Prometheus and
 # Grafana. Everything else stays on the internal network.
 
@@ -25,7 +25,7 @@ services:
     depends_on: &langfuse-depends-on
       langfuse-postgres:
         condition: service_healthy
-      minio:
+      s3mock:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -49,14 +49,14 @@ services:
       LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
       LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: minio
       LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: miniosecret
-      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://s3mock:9090
       LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
       LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
       LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: langfuse
       LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
       LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: minio
       LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: miniosecret
-      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://s3mock:9090
       LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
       LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: media/
       REDIS_HOST: redis
@@ -118,25 +118,23 @@ services:
       retries: 10
       start_period: 1s
 
-  minio:
-    image: docker.io/minio/minio:latest
-    container_name: langfuse-minio
+  s3mock:
+    image: docker.io/adobe/s3mock:latest
+    container_name: langfuse-s3mock
     restart: unless-stopped
     networks:
       - langfuse-network
-    entrypoint: sh
-    command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'
     environment:
-      MINIO_ROOT_USER: minio
-      MINIO_ROOT_PASSWORD: miniosecret
+      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: langfuse
+      COM_ADOBE_TESTING_S3MOCK_STORE_ROOT: /s3mockroot
+      COM_ADOBE_TESTING_S3MOCK_STORE_RETAIN_FILES_ON_EXIT: "true"
     ports:
-      # 9190/9191 rather than upstream's 9090/9091 — 9091 is Prometheus here.
-      - "${LANGFUSE_MINIO_PORT:-9190}:9000"
-      - "127.0.0.1:${LANGFUSE_MINIO_CONSOLE_PORT:-9191}:9001"
+      # 9190 rather than S3Mock's 9090 because 9090 is Prometheus here.
+      - "${LANGFUSE_S3_PORT:-9190}:9090"
     volumes:
-      - langfuse_minio_data:/data
+      - langfuse_s3mock_data:/s3mockroot
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/favicon.ico"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -183,5 +181,5 @@ volumes:
   langfuse_postgres_data:
   langfuse_clickhouse_data:
   langfuse_clickhouse_logs:
-  langfuse_minio_data:
+  langfuse_s3mock_data:
   langfuse_redis_data:

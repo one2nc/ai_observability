@@ -1,29 +1,29 @@
-# Langfuse + OpenAI Agents: evaluation, not telemetry
+# OpenLIT + Langfuse + OpenAI Agents
 
-## Context: from OpenLIT to Langfuse
+## Context: OpenLIT traces, Langfuse workflows
 
 Experiments 6 and 7 ran the same incident-triage agent through OpenLLMetry and
 then OpenLIT, and the question each time was *which metrics show up*. OpenLIT won
 that round: workflow, agent, tool and chat operations, plus TTFT and cost in USD.
 
 This experiment keeps the agent identical — `src/agent.py` is byte-for-byte the
-same file as in `openlit_openai_agents` — and swaps in **Langfuse, on its own**.
-No OpenLIT, no OpenLLMetry, no OTel collector gateway. `langfuse` is the only
-observability dependency in [`pyproject.toml`](pyproject.toml).
+same file as in `openlit_openai_agents` — and sends **OpenLIT traces directly to
+Langfuse**. There is no OTel collector gateway in this experiment: the app is
+intentionally coupled to Langfuse so it can also use prompts, scores, datasets
+and experiments.
 
-That constraint surfaces two things immediately:
+That setup surfaces two things immediately:
 
-1. **Langfuse has no auto-instrumentor for the OpenAI Agents SDK.** Its docs point
-   you at third-party OTel instrumentors — which are experiments 6 and 7. To keep
-   this arm pure we go through the Agents SDK's *own* tracing interface instead
-   and translate its spans into Langfuse observations ourselves.
-2. **Langfuse has no metrics store.** No histograms, no PromQL, no Alertmanager
+1. **OpenLIT owns the Agents SDK instrumentation.** It exports OTLP traces
+   straight to Langfuse's `/api/public/otel` endpoint.
+2. **Langfuse has no metrics store.** OpenLIT metrics are disabled here because
+   there is nowhere useful to send them in Langfuse. No histograms, no PromQL, no Alertmanager
    path. Every dashboard panel from experiments 5–7 is unavailable here.
 
-**The finding:** Langfuse is strictly worse than OpenLIT at "is the agent slow or
-expensive right now", costs real integration effort on the Agents SDK, and is the
-only one of the three that can answer "is the agent any *good*, and did my last
-change make it worse". Those are different jobs. See the
+**The finding:** direct OpenLIT-to-Langfuse keeps Langfuse's evaluation workflow,
+but it still does not give you Prometheus metrics or alerting. Langfuse remains
+the place to answer "is the agent any *good*, and did my last change make it
+worse". See the
 [model-swap case study](docs/model_swap_case_study.md) and the
 [three-way comparison](docs/three_way_comparison.md).
 
@@ -31,51 +31,29 @@ change make it worse". Those are different jobs. See the
 
 | Layer | What it covers | Mechanism |
 |---|---|---|
-| Spans | agent, tool, generation, handoff, guardrail | Agents SDK `TracingProcessor` → Langfuse observations, [`src/langfuse_tracing.py`](src/langfuse_tracing.py) |
-| Trace root | request boundary, session, user, prompt link | `@observe` + `propagate_attributes`, [`app.py`](app.py) |
+| Spans | agent, tool, generation, handoff, guardrail | `openlit.init()` exporting OTLP directly to Langfuse, [`src/instrument.py`](src/instrument.py) |
+| Trace root | request boundary, session, user, prompt metadata | manual OTel span around `Runner.run()`, [`app.py`](app.py) |
 | Not-telemetry | prompt versions, scores, datasets, experiments | `langfuse` REST client, [`src/langfuse_native.py`](src/langfuse_native.py) |
-| Metrics | — | **nothing.** Langfuse has nowhere to put them |
+| Metrics | — | disabled; Langfuse has nowhere to put OpenLIT metric streams |
 
-### The span bridge
+### OpenLIT direct export
 
-`set_trace_processors([LangfuseTracingProcessor()])` replaces the processor the
-Agents SDK would otherwise use to upload traces to OpenAI's own dashboard. After
-that call nothing leaves for OpenAI, and every span the SDK emits arrives as a
-callback we translate.
-
-The translation is close to 1:1, because Langfuse's observation types line up
-with the SDK's span-data classes:
-
-| Agents SDK `span_data` | Langfuse `as_type` | Carries |
-|---|---|---|
-| `AgentSpanData` | `agent` | agent name, tools, handoffs, output type |
-| `FunctionSpanData` | `tool` | tool name, input args, return value |
-| `GenerationSpanData` | `generation` | model, messages, `model_config`, token usage |
-| `ResponseSpanData` | `generation` | Responses-API equivalent |
-| `GuardrailSpanData` | `guardrail` | name, whether it triggered |
-| `HandoffSpanData` | `span` | from-agent → to-agent |
-
-Parenting is explicit, not context-based. The SDK tracks its hierarchy through
-`span.parent_id`, which has no relationship to the OTel context Langfuse would
-otherwise use, so the processor keeps an id → observation map and creates each
-child off its resolved parent.
-
-Two honest caveats about the bridge:
-
-- **Timings come from when the callbacks fire**, not from the SDK's recorded `started_at`/`ended_at`, because Langfuse's `start_observation()` takes no start-time argument. The callbacks are synchronous with span start and end, so the gap is callback overhead — fine for comparing latency, not for sub-millisecond work.
-- **It is ~200 lines you now own.** `openlit.init()` is one line. This is the single biggest hidden cost of the Langfuse-only path and it does not show up in any feature matrix.
+[`src/instrument.py`](src/instrument.py) builds the Langfuse OTLP endpoint from
+`LANGFUSE_HOST`, passes HTTP Basic auth from the Langfuse public/secret keys via
+`otlp_headers`, and calls `openlit.init(...)` before the agent module is
+imported. That gives the app OpenLIT's Agents SDK spans in Langfuse.
 
 ## Flow
 
 ```mermaid
 graph LR
     User -->|POST /ask| App[FastAPI :8006]
-    App --> Root["@observe incident-triage<br/>session / user / prompt"]
+    App --> Root["OTel span incident-triage<br/>session / user / prompt metadata"]
     Root --> Runner[Agents SDK Runner.run]
-    Runner -->|TracingProcessor callbacks| Bridge[LangfuseTracingProcessor]
+    Runner -->|OpenLIT instrumentation| OTel[OTLP traces]
     Runner --> Tools[check_service_health<br/>lookup_runbook<br/>check_dependencies]
     Runner --> Model[chat completions]
-    Bridge --> LF[(Langfuse :3400)]
+    OTel --> LF[(Langfuse :3000)]
     App -->|get_prompt| LF
     User -->|POST /feedback| App
     App -->|create_score| LF
@@ -83,27 +61,25 @@ graph LR
     Eval -->|run_experiment| LF
 ```
 
-One backend, one arrow. Compare with experiments 5–7, where telemetry fans out
-through the collector gateway to a swappable sink — there is no gateway here at
-all, and that is the coupling cost discussed below.
+One backend, one telemetry arrow. Compare with experiments 5–7, where telemetry
+fans out through the collector gateway to a swappable sink — there is no gateway
+here, and that is the coupling cost discussed below.
 
 ## Expected trace
 
 | # | Observation | Type | Parent | Source | What it tells you | Sample fields |
 |---|---|---|---|---|---|---|
-| 1 | `incident-triage` | span | — | `@observe` | Request boundary, session/user/prompt attribution | `session_id`, `user_id`, `tags`, linked prompt version |
-| 2 | `Agent workflow` | chain | 1 | SDK `on_trace_start` | The whole `Runner.run()` | workflow name, metadata |
-| 3 | `incident-triage-agent` | agent | 2 | `AgentSpanData` | One agent invocation | `tools`, `handoffs`, `output_type` |
-| 4 | `generation` | generation | 3 | `GenerationSpanData` | Model call | `model`, messages, `usage_details` |
-| 5 | `check_service_health` | tool | 3 | `FunctionSpanData` | Tool call and its return value | `input`, `output` |
-| 6 | `check_dependencies` | tool | 3 | `FunctionSpanData` | Tool with simulated latency | `input`, `output` |
-| 7 | `generation` | generation | 3 | `GenerationSpanData` | Subsequent turn | `usage_details` |
+| 1 | `incident-triage` | span | — | manual OTel span | Request boundary, session/user/prompt metadata | `session.id`, `user.id`, `input.value`, `output.value` |
+| 2 | agent workflow span | span | 1 | OpenLIT | The whole `Runner.run()` | workflow/span kind, service name |
+| 3 | `incident-triage-agent` | span | 2 | OpenLIT | One agent invocation | agent name, tools |
+| 4 | model generation | span | 3 | OpenLIT | Model call | model, prompt/completion when enabled, token usage |
+| 5 | `check_service_health` | span | 3 | OpenLIT | Tool call | tool name, input/output |
+| 6 | `check_dependencies` | span | 3 | OpenLIT | Tool with simulated latency | tool name, duration |
+| 7 | model generation | span | 3 | OpenLIT | Subsequent turn | token usage |
 
-Because observations 4 and 7 are typed `generation`, Langfuse computes token
-counts and **cost per trace** from them, and renders the prompt and completion
-inline. That is Langfuse doing the arithmetic in the backend rather than the
-instrumentor doing it in-process, which is why cost shows up here without
-OpenLIT's `gen_ai.usage.cost` metric.
+Because OpenLIT emits GenAI attributes on the model spans, Langfuse can render
+LLM trace details from the OTLP payload. OpenLIT's metric instruments are still
+disabled in this experiment because Langfuse does not store metric streams.
 
 ## Case study
 
@@ -115,28 +91,27 @@ empty user-facing output even though the generation contained reasoning, and
 
 ## Attributes
 
-### On the trace root, from `propagate_attributes`
+### On the trace root, from OTel attributes
 
-These stamp every observation created inside the block, including the ones the
-bridge creates from SDK callbacks.
+These are set on the manual `incident-triage` span in `app.py`.
 
 | Attribute | Example | What it enables |
 |---|---|---|
-| `session_id` | `triage-a1b2c3d4` | Sessions view stitches multi-question conversations |
-| `user_id` | `demo-user`, `eval-harness` | Per-user filtering and cost attribution |
-| `tags` | `["agent", "incident-triage"]` | Filtering in the trace list |
-| `trace_name` | `incident-triage` | Stable grouping in the UI |
-| `prompt` | `incident-triage-instructions` v3 | Links the run to the prompt version that produced it |
+| `session.id` | `triage-a1b2c3d4` | Session correlation metadata |
+| `user.id` | `demo-user`, `eval-harness` | Per-user filtering metadata |
+| `langfuse.tags` | `agent,incident-triage` | Trace filtering metadata |
+| `langfuse.trace.name` | `incident-triage` | Stable trace grouping metadata |
+| `langfuse.prompt.name` | `incident-triage-instructions` | Prompt version context |
 
-### On observations, from the bridge
+### On observations, from OpenLIT
 
 | Field | Set from | Example |
 |---|---|---|
-| `model` | `GenerationSpanData.model` | `gpt-4o-mini` |
-| `model_parameters` | `GenerationSpanData.model_config` | temperature, top_p |
-| `usage_details` | `GenerationSpanData.usage` | `{"input": 418, "output": 96}` |
-| `input` / `output` | `FunctionSpanData.input` / `.output` | tool args / return JSON |
-| `level` + `status_message` | `span.error` | `ERROR`, exception message |
+| model attributes | OpenAI/Agents SDK calls | `gpt-4o-mini` |
+| token usage attributes | provider response usage | input/output tokens |
+| prompt/completion content | OpenLIT content capture | enabled by `OPENLIT_CAPTURE_MESSAGE_CONTENT=true` |
+| tool span attributes | Agents SDK tool calls | tool args / return JSON |
+| error status | exception or failed SDK span | `ERROR`, exception message |
 
 ### Scores (no OTel equivalent at all)
 
@@ -201,6 +176,28 @@ run this experiment. Rows 13–14 are hard regressions against experiments 5–7
 The full OpenLLMetry vs OpenLIT vs Langfuse breakdown lives in
 [Three-way comparison: OpenLLMetry vs OpenLIT vs Langfuse](docs/three_way_comparison.md).
 
+## Prerequisites
+
+- **Docker and Docker Compose.** The agent API and eval runner both run in
+  containers.
+- **Self-hosted Langfuse from `infra/`.** Start it with `make langfuse-up`.
+  This experiment sends OpenLIT OTLP traces directly to Langfuse and uses the
+  Langfuse SDK for prompts, scores and datasets.
+- **`.env` copied from `.env.example`.** The example Langfuse keys match a fresh
+  local stack. Run `cd ../../infra && make langfuse-keys` if the stack has been
+  recreated or keys changed.
+- **An OpenAI-compatible model endpoint.** This experiment does not include a
+  mock model. Configure one of:
+  - Direct OpenAI: `OPENAI_API_KEY=sk-...`, `OPENAI_MODEL=gpt-4o-mini`, optional
+    `OPENAI_AGENTS_API=responses`.
+  - Bifrost: `OPENAI_API_KEY=<bifrost-virtual-key>`,
+    `OPENAI_BASE_URL=http://host.docker.internal:8000/v1`,
+    `OPENAI_AGENTS_API=chat_completions`, and a model Bifrost can route.
+  - Another OpenAI-compatible provider: set `OPENAI_API_KEY`, `OPENAI_BASE_URL`
+    with the `/v1` path, `OPENAI_MODEL`, and `OPENAI_AGENTS_API=chat_completions`.
+- **`python3` on the host** for the Makefile targets that pipe responses through
+  `python3 -m json.tool`.
+
 ## Usage
 
 Start Langfuse:
@@ -216,10 +213,14 @@ Then the app:
 ```bash
 cd ../experiments/langfuse_openai_agents
 cp .env.example .env
-# Set OPENAI_API_KEY (and OPENAI_BASE_URL if going through Bifrost)
+# Edit .env:
+# - keep LANGFUSE_HOST=http://host.docker.internal:3000 for the container
+# - set OPENAI_API_KEY and OPENAI_MODEL
+# - set OPENAI_BASE_URL only when using Bifrost or another compatible gateway
 
 make up
 make langfuse-health      # confirm Langfuse is reachable before generating load
+make health               # confirm the agent API is reachable on :8006
 ```
 
 Generate traffic:
@@ -246,6 +247,9 @@ Verify from `infra/`:
 ```bash
 make check-langfuse     # health, key validity, ingested trace count
 ```
+
+Open the Langfuse UI at http://localhost:3000. The bootstrapped local login is
+`local@example.com` / `localpassword`.
 
 ### Where to look
 
@@ -274,10 +278,10 @@ invisible in every other experiment here.
 
 ## Gotchas
 
-- **`host.docker.internal`, not `localhost`:** the app runs in a container; `LANGFUSE_HOST=http://localhost:3400` fails from inside one.
+- **`host.docker.internal`, not `localhost`:** the app runs in a container; `LANGFUSE_HOST=http://localhost:3000` fails from inside one.
 - **No metrics anywhere.** If you are looking for Prometheus panels, you want experiment 7. `make metrics` and `make dashboard` deliberately do not exist here.
 - **401 from Langfuse:** keys are per-instance. Confirm with `cd ../../infra && make langfuse-keys`. The app logs `status=langfuse_auth_failed` at startup rather than crashing, so traces go missing silently — check the logs.
-- **`set_trace_processors` replaces, not appends.** That is intentional: the default processor uploads to OpenAI's dashboard. If you switch to `add_trace_processor`, you will start shipping traces to OpenAI too.
+- **OpenLIT talks directly to Langfuse.** This experiment intentionally skips the repo gateway, so changing sinks means changing app config/code.
 - **Prompts and completions are sent to Langfuse.** Fine for this synthetic agent; think before pointing it at anything carrying real user data.
 - **Prompt fetch is on the request path.** SDK-cached, and `fetch_prompt()` falls back to the hardcoded instructions if Langfuse is unreachable, but it is a dependency `agent.py` alone does not have.
 - **`agent.py` is intentionally unmodified** — byte-identical to experiments 6 and 7, so the comparison stays fair. The managed prompt is applied with `agent.clone(instructions=...)` in `app.py`.

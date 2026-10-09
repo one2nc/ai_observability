@@ -7,7 +7,7 @@ observability stacks.
 
 | | OpenLLMetry (exp 6) | OpenLIT (exp 7) | Langfuse |
 |---|---|---|---|
-| Instrumentation code | `Traceloop.init()` | `openlit.init()` | ~200-line `TracingProcessor` bridge you maintain |
+| Instrumentation code | `Traceloop.init()` | `openlit.init()` | `openlit.init()` pointed at Langfuse OTLP + Langfuse SDK for eval features |
 | Agent code changes | none | none | none (`clone()` for the managed prompt) |
 | Backend deps | collector + any OTel sink | collector + any OTel sink | Langfuse (Postgres + ClickHouse + Redis + MinIO) |
 | App knows the backend | no | no | **yes** |
@@ -16,7 +16,7 @@ observability stacks.
 
 | Capability | OpenLLMetry | OpenLIT | Langfuse |
 |---|---|---|---|
-| Agent / tool / model spans | Yes | Yes | Yes (via the bridge) |
+| Agent / tool / model spans | Yes | Yes | Yes (via OpenLIT direct OTLP) |
 | Prompt + completion text readable | Optional | Optional | Yes, first-class |
 | Token usage visible | Yes | Yes | Yes |
 | Cost | No | Yes (metric) | Yes (per trace, backend-computed) |
@@ -67,9 +67,9 @@ resembling an SLO needs a second backend.
 
 **2. The app stops being sink-agnostic.** Every other experiment sends OTLP to
 `:4418` and knows nothing about the backend. This one imports `langfuse`, calls
-`get_prompt()` on the request path, and installs a Langfuse-specific trace
-processor. Swapping Langfuse out means deleting code, not editing a collector
-config.
+`get_prompt()` on the request path, and points OpenLIT directly at Langfuse's
+OTLP endpoint. Swapping Langfuse out means deleting code/config, not editing a
+collector config.
 
 That coupling is not avoidable by being cleverer. You can keep an app pure and
 route traces through the gateway with `make up SINK=langfuse`; any of the other
@@ -77,9 +77,9 @@ experiments will land traces in Langfuse with zero code changes. What you get
 that way is traces only: no prompt linkage, no scores, no datasets. The features
 are the coupling.
 
-**3. You own the instrumentation.** No Agents SDK auto-instrumentor means the
-bridge is yours to maintain against two moving APIs. It is the cost least visible
-in a feature comparison and the one most likely to bite on an upgrade.
+**3. Direct export narrows the comparison.** You no longer maintain a custom
+bridge, but you also no longer test the repo's sink-swapping path. This is a
+Langfuse-coupled application by design.
 
 ## Recommendation
 

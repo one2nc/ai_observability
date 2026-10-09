@@ -18,6 +18,47 @@ You type a question, the bot answers, and Langfuse records what happened.
 Each stage adds one layer to that loop: a trace, then sessions, then nested
 spans, and so on.
 
+
+## Prerequisites
+
+- **Docker and Docker Compose.** Each stage runs in a short-lived container.
+- **Self-hosted Langfuse from `infra/`.** Start it with `make langfuse-up`.
+  This experiment talks directly to Langfuse and does not use pgvector, the OTel
+  collector gateway, Grafana, or SigNoz.
+- **`.env` copied from `.env.example`.** The bootstrapped Langfuse keys in the
+  example work on a fresh local stack. Use `cd ../../infra && make langfuse-keys`
+  if you rotated or recreated keys.
+- **Optional LLM provider key.** Leave `OPENAI_API_KEY` unset to use the built-in
+  deterministic mock model. Set `OPENAI_API_KEY`, optional `OPENAI_BASE_URL`, and
+  `MODEL_NAME` only when you want real model calls.
+- **`python3` on the host** for `make traces`, which formats Langfuse's trace API
+  response.
+
+## Usage
+
+```bash
+# 1. Start Langfuse from repo-root infra/
+cd ../../infra
+make langfuse-up
+make langfuse-keys
+
+# 2. Configure this experiment
+cd ../experiments/langfuse_introduction
+cp .env.example .env
+# Optional: edit .env if you want real LLM calls instead of the mock model.
+export LANGFUSE_HOST=http://localhost:3000
+
+# 3. Build and check Langfuse reachability
+make up
+
+# 4. Run a smoke turn and confirm traces landed
+make ask
+make traces
+```
+
+Open the Langfuse UI at http://localhost:3000. The bootstrapped local login is
+`local@example.com` / `localpassword`.
+
 ## The stages
 
 ### Stage 0: plain bot
@@ -117,29 +158,13 @@ experiment.
 | score `user-feedback` | `create_score` (stage 5) | `1` / `0`, BOOLEAN | Human quality signal |
 
 
-## Usage
+## Stage Commands
 
 All paths are relative to this experiment folder
 (`experiments/langfuse_introduction`). The Langfuse stack lives in the repo-root
 `infra/` folder, two levels up, and has its own Makefile.
 
-Start Langfuse once, from `infra/`:
-
-```bash
-cd ../../infra         # repo-root infra, not a folder inside this experiment
-make langfuse-up
-make langfuse-keys     # prints the credentials shown below
-```
-
-Then come back here and build:
-
-```bash
-cd ../../experiments/langfuse_introduction
-cp .env.example .env   # defaults already match the bootstrapped keys
-make up                # builds the image, checks Langfuse is reachable
-```
-
-Run the stages in order:
+After the setup above, run the stages in order:
 
 ```bash
 make stage-0    # plain bot — no observability
@@ -155,7 +180,7 @@ make run-all    # every stage end to end, non-interactive
 make down
 ```
 
-Open http://localhost:3400. UI login for the bootstrapped instance is
+Open http://localhost:3000. UI login for the bootstrapped instance is
 `local@example.com` / `localpassword`.
 
 ## Next
