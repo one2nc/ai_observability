@@ -82,7 +82,7 @@ sequenceDiagram
   - `EMBED_DIM`: embedding vector dimension. e.g. `EMBED_DIM=1536`
   - `CHAT_API_KEY`: API key for the chat endpoint (OpenRouter, direct, no gateway yet). e.g. `CHAT_API_KEY=your-openrouter-api-key`
   - `CHAT_BASE_URL`: base URL of the chat provider. e.g. `CHAT_BASE_URL=https://openrouter.ai/api/v1`
-  - `CHAT_MODEL`: chat model name. e.g. `CHAT_MODEL=openai/gpt-4o-mini`
+  - `CHAT_MODEL`: chat model name. e.g. `CHAT_MODEL=deepseek/deepseek-v4.1-flash`
   - `DATABASE_URL`: pgvector Postgres connection string. e.g. `DATABASE_URL=postgresql://rag:rag@localhost:5432/rag`
 - **`python3` on the host** for the `make ingest` / `make ask` targets (they pipe curl through `python3 -m json.tool`).
 
