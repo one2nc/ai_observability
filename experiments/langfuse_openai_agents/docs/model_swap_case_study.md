@@ -1,11 +1,9 @@
 # Model swap case study: prompt iteration with Langfuse
 
 This is the concrete story this experiment is meant to make visible. Codex took
-the same incident-triage RAG agent from experiments 6 and 7 and added Langfuse
-support by replacing the OpenAI Agents SDK tracer with the custom
-`LangfuseTracingProcessor`. That bridge gave us agent/tool/generation traces in
-Langfuse even though there is no native Langfuse auto-instrumentor for the Agents
-SDK.
+the same incident-triage agent from experiments 6 and 7, used OpenLIT for Agents
+SDK tracing, and sent those OTLP traces directly to Langfuse. The Langfuse SDK
+still handles prompts, scores, and dataset runs.
 
 ## 1. Start from prompt v1
 
@@ -60,7 +58,7 @@ and the evaluator returned to `1.00`.
 
 | Layer | What it showed |
 |---|---|
-| Custom span bridge | The Agents SDK workflow actually ran; tool calls and generations were present. |
+| OpenLIT traces | The Agents SDK workflow actually ran; tool calls and generations were present. |
 | Generation view | The model produced content, but in the wrong response channel for this app. |
 | Prompt Management | The fix was a versioned prompt change, not a rebuild. |
 | Evaluator score | `gpt-4.1 + v1` and `qwen3.6 + v2` were good; `qwen3.6 + v1` regressed. |

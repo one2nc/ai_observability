@@ -1,9 +1,4 @@
-"""OpenAI Agents incident-triage demo, observed with Langfuse only.
-
-No OpenLLMetry, no OpenLIT, no OTel collector gateway. The only observability
-dependency is the `langfuse` SDK, and agent spans come from the Agents SDK's own
-tracing interface — see src/langfuse_tracing.py.
-"""
+"""OpenAI Agents incident-triage demo observed by OpenLIT and Langfuse."""
 
 import logging
 import os
@@ -21,6 +16,7 @@ REQUIRED_ENV = (
     "LANGFUSE_HOST",
     "LANGFUSE_PUBLIC_KEY",
     "LANGFUSE_SECRET_KEY",
+    "OTEL_SERVICE_NAME",
 )
 missing = [name for name in REQUIRED_ENV if not os.environ.get(name)]
 if missing:
@@ -34,22 +30,21 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-from fastapi import FastAPI  # noqa: E402
-from langfuse import observe  # noqa: E402
+from fastapi import FastAPI, HTTPException  # noqa: E402
+from openai import OpenAIError  # noqa: E402
+from opentelemetry import trace  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from src import langfuse_tracing  # noqa: E402
+from src.instrument import init_instrumentation  # noqa: E402
 
-# Replaces the Agents SDK's default processor, which would upload traces to
-# OpenAI. Must happen before the first Runner.run().
-langfuse_tracing.install()
+app = FastAPI(title="OpenLIT + Langfuse + OpenAI Agents", version="0.1.0")
+init_instrumentation(app)
+tracer = trace.get_tracer(__name__)
 
 from agents import Runner  # noqa: E402
 
 from src import agent as agent_module  # noqa: E402
 from src import langfuse_native as lf  # noqa: E402
-
-app = FastAPI(title="Langfuse + OpenAI Agents", version="0.1.0")
 
 DEFAULT_USER_ID = os.environ.get("DEMO_USER_ID", "demo-user")
 MAX_TURNS = int(os.environ.get("AGENT_MAX_TURNS", "3"))
@@ -72,6 +67,10 @@ def startup() -> None:
 def shutdown() -> None:
     # The SDK buffers in a background thread; flush so nothing is lost on exit.
     lf.client().flush()
+    tracer_provider = trace.get_tracer_provider()
+    force_flush = getattr(tracer_provider, "force_flush", None)
+    if force_flush is not None:
+        force_flush()
 
 
 class AskRequest(BaseModel):
@@ -96,21 +95,23 @@ class FeedbackRequest(BaseModel):
     comment: str | None = None
 
 
-@observe(name="incident-triage")
 async def run_triage(query: str, session_id: str, user_id: str) -> tuple[str, str | None]:
-    """One triage request. @observe makes this the root Langfuse trace."""
+    """One triage request. OpenLIT exports the active OTel trace to Langfuse."""
     # Prompt management: instructions come from Langfuse, not from the code, so
     # they can be edited and versioned in the UI without a redeploy.
     instructions, prompt = lf.fetch_prompt()
 
-    with lf.triage_attributes(session_id, user_id, prompt):
-        trace_id = lf.current_trace_id()
+    attributes = lf.triage_attributes(session_id, user_id, prompt)
+    attributes["input.value"] = query
+    with tracer.start_as_current_span("incident-triage", attributes=attributes) as span:
+        span_context = span.get_span_context()
+        trace_id = f"{span_context.trace_id:032x}" if span_context.is_valid else None
         # agent.py is byte-identical to experiments 6 and 7; the managed prompt
         # is applied via clone() so that stays true and the comparison is fair.
         scoped_agent = agent_module.agent.clone(instructions=instructions)
         result = await Runner.run(scoped_agent, query, max_turns=MAX_TURNS)
         answer = str(result.final_output)
-        lf.set_trace_io(input_value=query, output=answer)
+        span.set_attribute("output.value", answer)
 
     return answer, trace_id
 
@@ -124,7 +125,18 @@ def health():
 async def ask(req: AskRequest):
     session_id = req.session_id or f"triage-{uuid.uuid4().hex[:8]}"
     user_id = req.user_id or DEFAULT_USER_ID
-    answer, trace_id = await run_triage(req.query, session_id, user_id)
+    try:
+        answer, trace_id = await run_triage(req.query, session_id, user_id)
+    except OpenAIError as exc:
+        log.exception("status=model_request_failed")
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "error": "model_request_failed",
+                "message": str(exc),
+                "hint": "Check OPENAI_API_KEY, OPENAI_BASE_URL, and the selected OPENAI_MODEL.",
+            },
+        ) from exc
     return AskResponse(
         query=req.query, answer=answer, trace_id=trace_id, session_id=session_id
     )

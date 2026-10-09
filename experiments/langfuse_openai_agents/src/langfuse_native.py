@@ -5,16 +5,14 @@ than telemetry. No span you can emit creates a prompt version or uploads an
 experiment run, which is the fundamental reason Langfuse can answer questions
 OpenLLMetry and OpenLIT cannot.
 
-`propagate_attributes` is the important one here: it stamps session, user, tags
-and the linked prompt onto every observation created inside the block — including
-the agent, tool and generation observations that
-[`langfuse_tracing.py`](langfuse_tracing.py) creates from the SDK's callbacks.
+`triage_attributes` returns OTel span attributes for the request root that
+OpenLIT exports to Langfuse.
 """
 
 import logging
 import os
 
-from langfuse import get_client, propagate_attributes
+from langfuse import get_client
 
 log = logging.getLogger(__name__)
 
@@ -78,34 +76,23 @@ def fetch_prompt():
 
 
 def triage_attributes(session_id: str, user_id: str, prompt=None):
-    """Context manager stamping session/user/tags/prompt on the whole trace.
+    """Attributes stamped on the OTel root span for one triage request.
 
-    Passing `prompt` here is what links the trace to the prompt *version* that
-    produced it, which is what makes "did my prompt edit regress quality?"
-    answerable later.
+    Langfuse's prompt object is still used to fetch/version instructions, but
+    OpenLIT owns trace export in this experiment.
     """
-    kwargs = {
-        "session_id": session_id,
-        "user_id": user_id,
-        "tags": ["agent", "incident-triage"],
-        "trace_name": "incident-triage",
+    attrs = {
+        "session.id": session_id,
+        "user.id": user_id,
+        "langfuse.tags": "agent,incident-triage",
+        "langfuse.trace.name": "incident-triage",
     }
     if prompt is not None:
-        kwargs["prompt"] = prompt
-    return propagate_attributes(**kwargs)
-
-
-def current_trace_id() -> str | None:
-    """Langfuse trace ID for the active trace — needed to score it later."""
-    return client().get_current_trace_id()
-
-
-def set_trace_io(input_value=None, output=None) -> None:
-    """Record trace-level input/output so the trace list is readable."""
-    try:
-        client().set_current_trace_io(input=input_value, output=output)
-    except Exception:  # noqa: BLE001 - cosmetic only
-        log.debug("status=trace_io_update_failed", exc_info=True)
+        attrs["langfuse.prompt.name"] = getattr(prompt, "name", PROMPT_NAME)
+        version = getattr(prompt, "version", None)
+        if version is not None:
+            attrs["langfuse.prompt.version"] = str(version)
+    return attrs
 
 
 def record_score(trace_id: str, name: str, value, data_type: str, comment=None) -> None:
