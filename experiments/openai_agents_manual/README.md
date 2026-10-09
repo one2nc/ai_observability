@@ -43,13 +43,20 @@ make dashboard
 
 ## Context: from RAG to agents
 
-Experiments 1-4 instrument a **RAG pipeline** - embed a query, search a vector
-database, pass retrieved context to a model, return an answer. The observable
-steps are: embedding call, vector search, and generation call.
+Experiments 1-4 instrument a **RAG pipeline**:
 
-This experiment shifts to an **agentic pattern**. Instead of retrieving context
-from a database, the model decides at runtime which **tools** (functions) to call,
-inspects their results, and may loop multiple times before producing a final answer.
+- Embed a query.
+- Search a vector database.
+- Pass retrieved context to a model.
+- Return an answer.
+- Observable steps: embedding call, vector search, and generation call.
+
+This experiment shifts to an **agentic pattern**:
+
+- No context retrieved from a database up front.
+- The model decides at runtime which **tools** (functions) to call.
+- It inspects their results and may loop multiple times.
+- It produces a final answer only after that loop.
 
 The observable steps change:
 
@@ -69,6 +76,24 @@ New terminology for agent observability:
 | **Tool call** | A function the model chose to invoke (e.g. `check_service_health`) | Identify slow/failing external dependencies |
 | **Model call** (chat) | A single round-trip to the LLM API | Provider latency, token cost per turn |
 | **Turn** | One iteration of the loop: model call → tool calls → next model call | Detect runaway loops that inflate cost |
+
+How these spans nest in a trace:
+
+```
+POST /ask
+└── invoke_workflow            (the whole agent run)
+    ├── chat                   (turn 1 model call)
+    ├── execute_tool           (tool from turn 1)
+    ├── execute_tool           (tool from turn 1)
+    ├── chat                   (turn 2 model call)
+    ├── execute_tool           (tool from turn 2)
+    └── chat                   (final synthesis turn)
+```
+
+- `invoke_workflow` is the parent span wrapping the entire run.
+- Each `chat` and each `execute_tool` is a **direct child of `invoke_workflow`**, so they are siblings.
+- `chat` does NOT contain the tool spans. The model call returns first, then the tools it requested are dispatched as separate sibling spans.
+- Turns are not their own span: a "turn" is just one `chat` followed by its `execute_tool` siblings, repeated until the model stops calling tools.
 
 ## What this experiment does
 
@@ -125,6 +150,30 @@ sequenceDiagram
     A-->>U: severity, evidence, next actions
 ```
 
+Reading the diagram, turn by turn:
+
+- **Turn 1: inspect catalog itself.**
+  - The user asks: `"catalog is showing errors. Triage the incident."`
+  - The model gets that query plus the tools schema (`check_service_health`, `lookup_runbook`, `check_dependencies`).
+  - From the query it targets `catalog`, so it calls `check_service_health("catalog")` -> `degraded`, error_rate 0.05.
+  - It calls `lookup_runbook("catalog")` -> advice to check cache hit rate and replica lag.
+  - It calls `check_dependencies("catalog")` -> `[search-index, inventory]`, so catalog depends on those two services.
+- **Turn 2: inspect the dependencies it just discovered.**
+  - `check_service_health("search-index")` -> `degraded`, error_rate 0.12.
+  - `check_service_health("inventory")` -> `healthy`.
+  - `check_dependencies("search-index")` and `check_dependencies("inventory")` -> both empty, so the chain ends here.
+- **Turn 3: synthesize.**
+  - With no new dependencies to follow, the model stops calling tools.
+  - It returns the final triage report: severity, evidence, next actions.
+
+- **Why 3 turns:** each turn is one model call plus the tool calls it triggers. The model cannot inspect `search-index` until turn 1 reveals it as a dependency, so the depth of the dependency chain sets the number of turns.
+
+- How deep does it go?
+
+  - One turn per level of the dependency chain, plus one final turn to synthesize.
+  - Capped by `max_turns`, which is set to `3` in the code.
+  - A chain needing more than 3 turns (like `checkout`) hits the cap and returns no final answer.
+
 For checkout (4 turns), the model must also explore payments (-> ledger) and
 auth before it can synthesize, which exceeds `max_turns=3` and gets cut off.
 
@@ -140,6 +189,29 @@ The code sets `max_turns=3`. Different services exercise different turn counts:
 If all you have is the HTTP-level
 metric ("this request took 20 seconds"), you can't tell whether the bottleneck
 is the model, a tool, or a runaway multi-turn loop.
+
+```mermaid
+graph TD
+    H["HTTP metric: POST /ask = 20s ❓ (which part was slow?)"]
+    H -.->|opaque| C1
+
+    C1["chat turn 1 — model: 4s"]
+    T1["tool: check_service_health — 0.2s"]
+    T2["tool: check_dependencies — 0.8s"]
+    C2["chat turn 2 — model: 5s"]
+    T3["tool: lookup_runbook — 1.5s"]
+    C3["chat turn 3 — model: 4.5s"]
+    More["... more turns"]
+
+    C1 --> T1 --> T2 --> C2 --> T3 --> C3 --> More
+```
+
+- The HTTP span only tells you the **total**: 20s. It cannot say which part was slow.
+- The breakdown underneath answers it:
+  - Model slow? Look for slow `chat` spans.
+  - Tool slow? Look for a slow `execute_tool` span.
+  - Too many turns? A long chain of `chat` spans means a runaway loop.
+- Per-step spans and metrics are what turn the opaque 20s into an attributable cause.
 
 **The solution in this experiment:** Build the tool loop by hand using the raw
 OpenAI chat completions API, and wrap every step with manual OTel spans and

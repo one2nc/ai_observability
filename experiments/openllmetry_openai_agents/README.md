@@ -59,11 +59,14 @@ auto-instrumentation. The agent, tools, and dependency graph are identical.
 The question: does OpenLLMetry reproduce the metrics that the manual experiment
 gets for free?
 
-**Answer: partially.** Traces work (spans for agent, tools, model calls). Model
-call duration and token usage metrics are recorded (from the OpenAI SDK
-instrumentor). But agent workflow and tool duration metrics are absent - only
-`gen_ai_operation_name="chat"` appears in Prometheus, with no `invoke_workflow`
-or `execute_tool` operation names present.
+**Answer: partially.**
+
+- **Traces work:** spans are emitted for the agent, tools, and model calls.
+- **Some metrics work:** model call duration and token usage are recorded, from the OpenAI SDK instrumentor.
+- **Agent workflow and tool duration metrics are absent:**
+  - Only `gen_ai_operation_name="chat"` appears in Prometheus.
+  - No `invoke_workflow` operation name is present.
+  - No `execute_tool` operation name is present.
 
 ## What OpenLLMetry emits
 
@@ -184,7 +187,7 @@ make dashboard
 |---|---|---|---|
 | Model Call Duration p95 | `gen_ai.client.operation.duration` | `histogram_quantile(0.95, sum(increase(gen_ai_client_operation_duration_seconds_bucket{service_name="ai-obs-openllmetry-openai-agents"}[$__range])) by (le, gen_ai_operation_name))` | Provider latency per chat call |
 | Token Usage | `gen_ai.client.token.usage` | `sum(increase(gen_ai_client_token_usage_sum{service_name="ai-obs-openllmetry-openai-agents"}[$__range])) by (gen_ai_token_type, gen_ai_response_model)` | Token consumption |
-| Generation Choices by Finish Reason | `gen_ai.client.generation.choices` | `sum(increase(gen_ai_client_generation_choices_choice_total{service_name="ai-obs-openllmetry-openai-agents"}[$__range])) by (gen_ai_response_finish_reason)` | Ratio of tool_call vs stop - shows how often the model invokes tools |
+| Generation Choices by Finish Reason | `gen_ai.client.generation.choices` | `sum(increase(gen_ai_client_generation_choices_choice_total{service_name="ai-obs-openllmetry-openai-agents"}[$__range])) by (gen_ai_response_finish_reason)` | Running count of completions over the range, split by finish reason. stop = model synthesized a final answer, tool_call = model asked to call a tool. Gap between the lines shows tool-calling turns per final answer |
 | Tool Calls per Completed Request | `gen_ai.client.generation.choices` | `tool_call count / stop count` | Average tool-calling turns per request. Spike = model looping more |
 | Agent Workflow Duration p95 (MISSING) | `gen_ai.client.operation.duration` | `...{gen_ai_operation_name="invoke_workflow"}` | Empty - not recorded by OpenLLMetry |
 | Tool Execution Duration p95 (MISSING) | `gen_ai.client.operation.duration` | `...{gen_ai_operation_name="execute_tool"}` | Empty - not recorded by OpenLLMetry |
@@ -194,6 +197,53 @@ make dashboard
 | Error Rate (5xx) | `http.server.duration` | `...{http_status_code=~"5.."}` | Server errors |
 | Request Size (bytes, avg) | `http.server.request_size` | `rate(_sum) / rate(_count)` | Payload size |
 | Response Size (bytes, avg) | `http.server.response_size` | `rate(_sum) / rate(_count)` | Response size |
+
+### Reading the Generation Choices and Tool Calls panels
+
+These two panels are the main window into agent behaviour, so it is worth
+spelling out what the lines mean and why they move the way they do.
+
+**What a "completion" is**
+
+- Each time the agent calls the LLM, the LLM returns one response = one completion.
+- Every completion ends in one of two ways, the `finish_reason`:
+  - `stop` = the model wrote a final answer in plain text. The turn is done.
+  - `tool_call` = the model did not answer; it asked to run a tool first. The agent runs the tool, then calls the LLM again.
+- One user question is usually several completions: a few `tool_call` turns, then one `stop`.
+  - `auth-ask` resolves in few tool calls (shallow dependency chain), so it is mostly `stop`.
+  - `checkout-ask` fans out into payments, catalog and auth, so it is many `tool_call` turns before one `stop`.
+
+**Generation Choices by Finish Reason (left panel)**
+
+- The question this panel answers is not "how many tool calls happened" on its own. A raw tool-call count means nothing in isolation. What you want to know is how many of the model's responses were the model asking for a tool versus the model actually answering.
+- Green `stop` = responses where the model gave a final answer. Yellow `tool_call` = responses where the model stopped to ask for a tool instead of answering.
+- Reading the two together tells you how the agent is spending its LLM calls right now:
+  - In this setup every question forces at least one tool call before the model can answer, so yellow `tool_call` is always at or above green `stop`. Green never overtakes yellow.
+  - Yellow far above green = the agent is doing lots of tool work per answer (deep, multi-tool questions).
+  - Yellow close to green = the agent is answering after roughly one tool call each (shallow, near-direct questions).
+- The lines go up and down as the workload changes. A line falling just means that kind of response is happening less often than it was a moment ago, not that anything was lost.
+
+**Tool Calls per Completed Request (right panel)**
+
+- This collapses the same idea into one number: on average, how many tool-asking responses did it take to get one final answer?
+- ~1 = the floor: each answer took about one tool call, which is the minimum here since every question forces at least one tool call. ~3 = every answer cost about 3 tool-asking turns, the cap the agent allows (`max_turns=3`).
+- Watch this line go up over time and you are watching the agent do more tool work per question, i.e. getting more "looky" and less decisive.
+
+**The shape in the screenshot (auth-heavy, then checkout-heavy)**
+
+![Generation Choices and Tool Calls per Request](images/generation-choices-shape.png)
+
+This run shows exactly that story:
+
+- First you drove `auth-ask` and looped it for a while.
+  - `auth-ask` is cheap: mostly `stop`, few `tool_call`.
+  - On the left panel, green (`stop`) climbs fast and yellow (`tool_call`) flattens, so the lines converge.
+  - On the right panel, the ratio falls toward ~1.1: close to one answer per tool call.
+- Then you switched to `checkout-ask`, which adds more tool calls.
+  - `checkout-ask` fans out across dependencies: many `tool_call` turns, hitting the `max_turns=3` cap, fewer `stop`.
+  - On the left panel, yellow turns back up and green bends down, so the lines diverge again.
+  - On the right panel, the ratio climbs back up toward ~2.5-3.
+- Takeaway: the crossover and the ratio dip-then-climb are the metric signature of workload mix changing from a shallow, direct-answer query to a deep, tool-heavy one. Without workflow or tool duration metrics, this ratio is OpenLLMetry's closest proxy for "the agent is looping / doing more tool work per request."
 
 ### Example: Tool Calls per Completed Request
 

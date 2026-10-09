@@ -55,7 +55,7 @@
       "type": "timeseries",
       "options": {"tooltip": {"mode": "multi"}},
       "title": "Generation Choices by Finish Reason",
-      "description": "Total completions split by finish reason (stop vs tool_call). Shows how often the model calls tools vs synthesizes.",
+      "description": "Running count of completions over the selected range, split by finish reason. stop = model wrote a final answer (synthesized). tool_call = model asked to call a tool instead of answering. Lines are cumulative over the range, so they climb and then flatten when traffic stops; the gap between them shows how many tool-calling turns happen per final answer.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 9 },
       "targets": [
@@ -71,7 +71,7 @@
       "type": "timeseries",
       "options": {"tooltip": {"mode": "multi"}},
       "title": "Tool Calls per Completed Request",
-      "description": "Ratio of tool_call to stop finish reasons. Value of 1.4 means the model averages 1.4 tool-calling turns before synthesizing. Spike = model looping more.",
+      "description": "Ratio of tool_call to stop finish reasons over the range. A value of 4 means the model averages 4 tool-calling turns per completed answer. Higher = model looping/calling more tools before it synthesizes.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 9 },
       "targets": [
