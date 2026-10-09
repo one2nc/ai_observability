@@ -27,6 +27,7 @@ cd ../experiments/openlit_openai_agents
 cp .env.example .env
 # Set OPENAI_API_KEY
 
+make build
 make up
 ```
 

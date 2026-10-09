@@ -17,6 +17,9 @@ ingest:
 ask:
 	curl -s -X POST http://localhost:$(PORT)/ask -H "Content-Type: application/json" -d '{"query": "What does the kube-scheduler do?", "user_id": "saurabh"}' | python3 -m json.tool
 
+invalid-ask:
+	curl -s -X POST http://localhost:$(PORT)/ask -H "Content-Type: application/json" -d '{"query": "Why is melody chocolatey?", "user_id": "saurabh"}' | python3 -m json.tool
+
 health:
 	curl -s http://localhost:$(PORT)/health | python3 -m json.tool
 

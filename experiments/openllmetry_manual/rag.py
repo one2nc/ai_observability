@@ -13,11 +13,22 @@ tracer = trace.get_tracer(__name__)
 meter = metrics.get_meter(__name__)
 
 # Custom metrics
-similarity_histogram = meter.create_histogram("rag.retrieve.similarity", description="Cosine similarity of retrieved chunks", unit="score")
+similarity_histogram = meter.create_histogram(
+    "rag.retrieve.similarity", description="Cosine similarity of retrieved chunks", unit="score"
+)
 retrieve_count = meter.create_counter("rag.retrieve.count", description="Number of retrieval operations")
 retrieve_empty = meter.create_counter("rag.retrieve.empty", description="Retrievals that returned no results")
 
-REQUIRED_ENV = ["EMBED_API_KEY", "EMBED_BASE_URL", "EMBED_MODEL", "EMBED_DIM", "CHAT_API_KEY", "CHAT_BASE_URL", "CHAT_MODEL", "DATABASE_URL"]
+REQUIRED_ENV = [
+    "EMBED_API_KEY",
+    "EMBED_BASE_URL",
+    "EMBED_MODEL",
+    "EMBED_DIM",
+    "CHAT_API_KEY",
+    "CHAT_BASE_URL",
+    "CHAT_MODEL",
+    "DATABASE_URL",
+]
 
 
 def _check_env() -> None:
@@ -90,7 +101,9 @@ def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVE
 
 def embed(texts: list[str]) -> list[list[float]]:
     """Call embeddings API."""
-    with tracer.start_as_current_span("rag.embed", attributes={"embed.model": EMBED_MODEL, "embed.num_texts": len(texts)}):
+    with tracer.start_as_current_span(
+        "rag.embed", attributes={"embed.model": EMBED_MODEL, "embed.num_texts": len(texts)}
+    ):
         client = _embed_client()
         resp = client.embeddings.create(model=EMBED_MODEL, input=texts)
         return [item.embedding for item in resp.data]
@@ -98,7 +111,9 @@ def embed(texts: list[str]) -> list[list[float]]:
 
 def store_chunks(conn, source: str, chunks: list[str], embeddings: list[list[float]]) -> int:
     """Insert chunks + embeddings into pgvector."""
-    with tracer.start_as_current_span("rag.store", attributes={"store.source": source, "store.num_chunks": len(chunks)}):
+    with tracer.start_as_current_span(
+        "rag.store", attributes={"store.source": source, "store.num_chunks": len(chunks)}
+    ):
         with conn.cursor() as cur:
             for chunk, emb in zip(chunks, embeddings):
                 cur.execute(
@@ -127,6 +142,14 @@ def retrieve(conn, query: str, top_k: int = TOP_K) -> list[dict]:
                 rows = cur.fetchall()
         results = [{"content": row[0], "similarity": float(row[1])} for row in rows]
         retrieve_count.add(1)
+        total_chars = sum(len(r["content"]) for r in results)
+        log.info(
+            "status=retrieved query=%r num_results=%d requested_top_k=%d context_chars=%d",
+            query,
+            len(results),
+            top_k,
+            total_chars,
+        )
         if results:
             similarities = [r["similarity"] for r in results]
             span.set_attribute("retrieve.num_results", len(results))
@@ -142,7 +165,9 @@ def retrieve(conn, query: str, top_k: int = TOP_K) -> list[dict]:
 
 def generate(query: str, context_chunks: list[dict]) -> str:
     """Send retrieved context + query to LLM for answer generation."""
-    with tracer.start_as_current_span("rag.generate", attributes={"generate.model": CHAT_MODEL, "generate.num_context_chunks": len(context_chunks)}):
+    with tracer.start_as_current_span(
+        "rag.generate", attributes={"generate.model": CHAT_MODEL, "generate.num_context_chunks": len(context_chunks)}
+    ):
         context = "\n---\n".join(c["content"] for c in context_chunks)
         system_prompt = (
             "You are a helpful assistant. Answer the user's question using ONLY the provided context. "
@@ -187,7 +212,12 @@ def ask(query: str, user_id: str = "anonymous") -> dict:
         context_chunks = retrieve(conn, query)
         conn.close()
         if not context_chunks:
-            return {"answer": "No relevant documents found.", "sources": []}
+            return {"answer": "No relevant documents found.", "sources": [], "num_results": 0, "context_chars": 0}
         answer = generate(query, context_chunks)
         sources = [{"content": c["content"], "similarity": round(c["similarity"], 3)} for c in context_chunks]
-        return {"answer": answer, "sources": sources}
+        return {
+            "answer": answer,
+            "sources": sources,
+            "num_results": len(context_chunks),
+            "context_chars": sum(len(c["content"]) for c in context_chunks),
+        }

@@ -15,7 +15,7 @@ Instruments the RAG app with plain OpenTelemetry — manual spans, metrics, and 
   - `EMBED_DIM` — embedding vector dimension. e.g. `EMBED_DIM=1536`
   - `CHAT_API_KEY` — API key for the chat endpoint (OpenRouter, direct). e.g. `CHAT_API_KEY=your-openrouter-api-key`
   - `CHAT_BASE_URL` — base URL of the chat provider (OpenRouter, direct, no gateway yet). e.g. `CHAT_BASE_URL=https://openrouter.ai/api/v1`
-  - `CHAT_MODEL` — chat model name. e.g. `CHAT_MODEL=openai/gpt-4o-mini`
+  - `CHAT_MODEL` — chat model name. e.g. `CHAT_MODEL=deepseek/deepseek-v4.1-flash`
   - `DATABASE_URL` — pgvector Postgres connection string. e.g. `DATABASE_URL=postgresql://rag:rag@host.docker.internal:5432/rag`
   - `OTEL_SERVICE_NAME` — service name on emitted telemetry. e.g. `OTEL_SERVICE_NAME=ai-obs-otel`
   - `OTEL_EXPORTER_OTLP_ENDPOINT` — OTLP target; the app sends to the gateway, never a sink directly. e.g. `OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4418`
@@ -31,14 +31,21 @@ cd ../../infra && make up
 cp .env.example .env
 # Edit .env with your keys
 
-# 3. Run
+# 3. Build and run
+make build
 make up
 
-# 4. Test (from another terminal)
+# 4. Load the Grafana dashboard (after infra's grafana sink is up)
+make dashboard
+
+# 5. Test (from another terminal)
 make ingest
 make ask
 
-# 5. View traces in your configured sink
+# 6. View in Grafana at http://localhost:3000 (admin/admin)
+#    Explore -> Tempo -> service.name = ai-obs-otel  (traces)
+#    Explore -> Prometheus -> http_server_duration_milliseconds_count  (metrics)
+#    Dashboards -> the imported dashboard is ready to use
 ```
 
 ## Flow

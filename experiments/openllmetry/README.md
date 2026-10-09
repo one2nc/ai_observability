@@ -13,9 +13,9 @@ Instruments the RAG app with OpenLLMetry (Traceloop SDK) which auto-instruments 
   - `EMBED_BASE_URL` — base URL of the embedding provider. e.g. `EMBED_BASE_URL=https://openrouter.ai/api/v1`
   - `EMBED_MODEL` — embedding model name. e.g. `EMBED_MODEL=openai/text-embedding-3-small`
   - `EMBED_DIM` — embedding vector dimension. e.g. `EMBED_DIM=1536`
-  - `CHAT_API_KEY` — API key for the chat endpoint. e.g. `CHAT_API_KEY=your-chat-api-key`
-  - `CHAT_BASE_URL` — base URL of the chat gateway. e.g. `CHAT_BASE_URL=http://host.docker.internal:8000/v1`
-  - `CHAT_MODEL` — chat model name. e.g. `CHAT_MODEL=qwen3-coder-next`
+  - `CHAT_API_KEY` — API key for the chat endpoint (OpenRouter, direct). e.g. `CHAT_API_KEY=your-openrouter-api-key`
+  - `CHAT_BASE_URL` — base URL of the chat provider (OpenRouter, direct, no gateway yet). e.g. `CHAT_BASE_URL=https://openrouter.ai/api/v1`
+  - `CHAT_MODEL` — chat model name. e.g. `CHAT_MODEL=deepseek/deepseek-v4.1-flash`
   - `DATABASE_URL` — pgvector Postgres connection string. e.g. `DATABASE_URL=postgresql://rag:rag@host.docker.internal:5432/rag`
   - `OTEL_SERVICE_NAME` — service name on emitted telemetry. e.g. `OTEL_SERVICE_NAME=ai-obs-openllmetry`
   - `OTEL_EXPORTER_OTLP_ENDPOINT` — OTLP target; the app sends to the gateway, never a sink directly. e.g. `OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4418`
@@ -32,15 +32,21 @@ cd ../../infra && make up
 cp .env.example .env
 # Edit .env with your keys
 
-# 3. Run
+# 3. Build and run
+make build
 make up
 
-# 4. Test (from another terminal)
+# 4. Load the Grafana dashboard (after infra's grafana sink is up)
+make dashboard
+
+# 5. Test (from another terminal)
 make ingest
 make ask
 
-# 5. View traces in your configured sink
-# Look for gen_ai.* attributes on spans
+# 6. View in Grafana at http://localhost:3000 (admin/admin)
+#    Explore -> Tempo -> service.name = ai-obs-openllmetry  (look for gen_ai.* attributes on spans)
+#    Explore -> Prometheus -> gen_ai_client_token_usage_sum  (metrics)
+#    Dashboards -> the imported dashboard is ready to use
 ```
 
 ## Flow
@@ -59,6 +65,40 @@ graph LR
 
     style Traceloop stroke-dasharray: 5 5
 ```
+
+## How one import line instruments everything
+
+The app only does this:
+
+```python
+from instrument import init_instrumentation
+import rag
+...
+init_instrumentation(app)
+```
+
+`rag.py` has no OpenTelemetry code, yet every LLM call is traced. Here is why.
+
+- **It works by monkey-patching, not by code you call.**
+  - `init_instrumentation()` runs `Traceloop.init(...)` at startup.
+  - Traceloop replaces the OpenAI SDK methods (`chat.completions.create`, `embeddings.create`) in memory with wrapped versions.
+  - The wrapper starts a span, calls the original method, records model, token usage, and prompt/response as attributes, then ends the span.
+
+- **`rag.py` stays plain.**
+  - It just calls `client.chat.completions.create(...)` and `client.embeddings.create(...)` as normal.
+  - Those calls now hit the patched methods, so the `openai.chat` / `openai.embeddings` spans appear for free.
+
+- **Import order is the trick.**
+  - `init_instrumentation()` must run before any OpenAI call happens, and it does. `app.py` calls it at module load, before any request reaches `rag`.
+  - `rag` builds its OpenAI clients lazily (inside `_chat_client()` / `_embed_client()`), per request. By then the SDK classes are already patched, so every client picks up the wrapped methods.
+  - Patching targets the SDK classes, not your module, so importing `rag` as a normal module is enough. No special wiring needed.
+
+- **Two layers get instrumented, from two calls inside `init_instrumentation()`:**
+  - `Traceloop.init(...)` instruments the OpenAI SDK (the `gen_ai.*` LLM/embedding spans and metrics).
+  - `FastAPIInstrumentor.instrument_app(app)` instruments the ASGI layer (`POST /ask`, `http receive`, `http send`).
+
+- **What you still do NOT get here:**
+  - No `rag.*` spans (retrieve, vector_search, generate). Your own code is not auto-instrumented, only the libraries are.
 
 ## What this captures vs otel
 

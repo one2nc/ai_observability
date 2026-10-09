@@ -19,7 +19,7 @@ ingest:
 	curl -s -X POST http://localhost:$(PORT)/ingest -F "file=@sample_data/kubernetes.txt" | python3 -m json.tool
 
 ask:
-	curl -s -X POST http://localhost:$(PORT)/ask -H "Content-Type: application/json" -d '{"query": "What does the kube-scheduler do?", "user_id": "anonymous", "chat_model": "openrouter/gpt-4o-mini"}' | python3 -m json.tool
+	curl -s -X POST http://localhost:$(PORT)/ask -H "Content-Type: application/json" -d '{"query": "What does the kube-scheduler do?", "user_id": "anonymous", "chat_model": "openrouter/deepseek/deepseek-v4.1-flash"}' | python3 -m json.tool
 
 random-ingest:
 	PORT=$(PORT) python3 ./scripts/random_rag.py ingest --count 1

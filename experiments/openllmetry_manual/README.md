@@ -13,9 +13,9 @@ Builds on `openllmetry` by adding manual spans to close the instrumentable gaps.
   - `EMBED_BASE_URL` — base URL of the embedding provider. e.g. `EMBED_BASE_URL=https://openrouter.ai/api/v1`
   - `EMBED_MODEL` — embedding model name. e.g. `EMBED_MODEL=openai/text-embedding-3-small`
   - `EMBED_DIM` — embedding vector dimension. e.g. `EMBED_DIM=1536`
-  - `CHAT_API_KEY` — API key for the chat endpoint. e.g. `CHAT_API_KEY=your-chat-api-key`
-  - `CHAT_BASE_URL` — base URL of the chat gateway. e.g. `CHAT_BASE_URL=http://host.docker.internal:8000/v1`
-  - `CHAT_MODEL` — chat model name. e.g. `CHAT_MODEL=qwen3-coder-next`
+  - `CHAT_API_KEY` — API key for the chat endpoint (OpenRouter, direct). e.g. `CHAT_API_KEY=your-openrouter-api-key`
+  - `CHAT_BASE_URL` — base URL of the chat provider (OpenRouter, direct, no gateway yet). e.g. `CHAT_BASE_URL=https://openrouter.ai/api/v1`
+  - `CHAT_MODEL` — chat model name. e.g. `CHAT_MODEL=deepseek/deepseek-v4.1-flash`
   - `DATABASE_URL` — pgvector Postgres connection string. e.g. `DATABASE_URL=postgresql://rag:rag@host.docker.internal:5432/rag`
   - `OTEL_SERVICE_NAME` — service name on emitted telemetry. e.g. `OTEL_SERVICE_NAME=ai-obs-openllmetry-manual`
   - `OTEL_EXPORTER_OTLP_ENDPOINT` — OTLP target; the app sends to the gateway, never a sink directly. e.g. `OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4418`
@@ -32,15 +32,21 @@ cd ../../infra && make up
 cp .env.example .env
 # Edit .env with your keys
 
-# 3. Run
+# 3. Build and run
+make build
 make up
 
-# 4. Test (from another terminal)
+# 4. Load the Grafana dashboard (after infra's grafana sink is up)
+make dashboard
+
+# 5. Test (from another terminal)
 make ingest
 make ask
 
-# 5. View traces in your configured sink
-# Look for rag.* spans with similarity attributes
+# 6. View in Grafana at http://localhost:3000 (admin/admin)
+#    Explore -> Tempo -> service.name = ai-obs-openllmetry-manual  (look for rag.* spans with similarity attributes)
+#    Explore -> Prometheus -> rag_retrieve_similarity_score_bucket  (metrics)
+#    Dashboards -> the imported dashboard is ready to use
 ```
 
 ## Flow
@@ -231,8 +237,7 @@ Sent irrelevant queries (e.g. "why is melody chocolatey?") whose answers don't e
 ![Tokens per request during irrelevant queries](images/irrelevant-queries-tokens-per-request.png)
 
 The Tokens per Request panel confirms the mechanism:
-- **chat/input** drops slightly (3560 → 3500): retrieved chunks are the same size regardless of relevance, but marginally less text in low-scoring fragments.
-- **chat/output** drops dramatically (80 → ~10): the LLM has nothing useful to say with irrelevant context, so it responds with a short "I don't have enough information" — ~10 output tokens vs ~80 for a real answer.
+- **chat/output** drops sharply when queries go irrelevant: the LLM has nothing useful to say with irrelevant context, so it responds with a short "I don't have enough information" instead of a full answer, which is far fewer output tokens.
 
 The output token drop is the clearest signal that the LLM is failing to produce useful answers.
 

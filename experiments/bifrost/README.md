@@ -9,7 +9,7 @@ Routes a fully instrumented RAG app through Bifrost AI gateway. Combines OpenLLM
   - Brings up pgvector, the OTel collector gateway (OTLP on `host.docker.internal:4418`), the Bifrost gateway, and the selected sink.
   - For the gateway/cost/retrieval panels, use a metrics-capable sink: `SINK=grafana`.
 - **A Bifrost virtual key.** Create it in the Bifrost UI at http://localhost:8800 → Virtual Keys → Create.
-  - Allow the models you use (e.g. `openrouter/text-embedding-3-small`, `openrouter/gpt-4o-mini`, or `*`).
+  - Allow the models you use (e.g. `openrouter/text-embedding-3-small`, `openrouter/deepseek/deepseek-v4.1-flash`, or `*`).
   - The key lives in the gateway's SQLite DB; it is lost on `make clean` / container recreate and must be regenerated (see the note below).
 - **`.env`** copied from `.env.example`, no hidden defaults:
   - `EMBED_API_KEY` — the Bifrost virtual key, for embeddings. e.g. `EMBED_API_KEY=your-bifrost-virtual-key`
@@ -18,7 +18,7 @@ Routes a fully instrumented RAG app through Bifrost AI gateway. Combines OpenLLM
   - `EMBED_DIM` — embedding vector dimension. e.g. `EMBED_DIM=1536`
   - `CHAT_API_KEY` — the Bifrost virtual key, for chat. e.g. `CHAT_API_KEY=your-bifrost-virtual-key`
   - `CHAT_BASE_URL` — Bifrost gateway URL for chat. e.g. `CHAT_BASE_URL=http://host.docker.internal:8800/v1`
-  - `CHAT_MODEL` — chat model name. e.g. `CHAT_MODEL=openrouter/gpt-4o-mini`
+  - `CHAT_MODEL` — chat model name. e.g. `CHAT_MODEL=openrouter/deepseek/deepseek-v4.1-flash`
   - `DATABASE_URL` — pgvector Postgres connection string. e.g. `DATABASE_URL=postgresql://rag:rag@host.docker.internal:5432/rag`
   - `OTEL_SERVICE_NAME` — service name on emitted telemetry. e.g. `OTEL_SERVICE_NAME=ai-obs-bifrost`
   - `OTEL_EXPORTER_OTLP_ENDPOINT` — OTLP target; the app sends to the gateway, never a sink directly. e.g. `OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4418`
@@ -39,14 +39,15 @@ make up AI_GATEWAY=bifrost
 
 # 2. Create Bifrost virtual key
 # Open http://localhost:8800 → Virtual Keys → Create
-# Allow models: openrouter/text-embedding-3-small, openrouter/gpt-4o-mini (or "*")
+# Allow models: openrouter/text-embedding-3-small, openrouter/deepseek/deepseek-v4.1-flash (or "*")
 # Copy the key
 
 # 3. Configure experiment
 cp .env.example .env
 # Set CHAT_API_KEY and EMBED_API_KEY to the Bifrost virtual key
 
-# 4. Run
+# 4. Build and run
+make build
 make up
 
 # 5. Test (from another terminal)
@@ -69,7 +70,7 @@ Override the chat model at request time:
 ```bash
 curl -s -X POST http://localhost:8004/ask \
   -H "Content-Type: application/json" \
-  -d '{"query": "What does the kube-scheduler do?", "user_id": "platform-oncall", "chat_model": "openrouter/gpt-4.1-mini"}' | python3 -m json.tool
+  -d '{"query": "What does the kube-scheduler do?", "user_id": "platform-oncall", "chat_model": "openrouter/deepseek/deepseek-v4.1-flash"}' | python3 -m json.tool
 ```
 
 ## Flow

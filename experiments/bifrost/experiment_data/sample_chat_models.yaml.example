@@ -1,12 +1,11 @@
 # Chat models for random_rag.py traffic generation.
 # Uncomment ONLY the models you want to use.
 # Each model incurs cost per token - review pricing before enabling.
+# A spread of models produces the per-model Grafana panels (cost/latency/tokens).
 
-# - openrouter/gpt-4o-mini
-# - openrouter/gpt-4.1-mini
-# - openrouter/gpt-4.1-nano
-# - openrouter/gpt-3.5-turbo
-# - openrouter/gpt-4.5
-# - openrouter/gpt-5
-# - openrouter/gpt-5.4
-# - openrouter/gpt-5.5
+# - openrouter/deepseek/deepseek-v4.1-flash
+# - openrouter/deepseek/deepseek-chat
+# - openrouter/meta-llama/llama-3.3-70b-instruct
+# - openrouter/mistralai/mistral-small
+# - openrouter/qwen/qwen-2.5-72b-instruct
+# - openrouter/google/gemini-2.0-flash-001

@@ -9,6 +9,7 @@ dependencies = [
   "python-dotenv>=1,<2",
   "openai-agents>=0.17.5",
   "traceloop-sdk==0.61.0",
+  "httpx>=0.27",
   "opentelemetry-api>=1.38,<2",
   "opentelemetry-sdk>=1.38,<2",
   "opentelemetry-exporter-otlp-proto-http>=1.38,<2",
