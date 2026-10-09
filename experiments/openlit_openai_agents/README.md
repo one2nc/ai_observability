@@ -48,14 +48,25 @@ panels were empty.
 
 ## Context: from OpenLLMetry to OpenLIT
 
-The previous experiment (`openllmetry_openai_agents`) showed that OpenLLMetry
-emits model call and token metrics but misses workflow and tool duration metrics.
-This experiment swaps OpenLLMetry for **OpenLIT** (`openlit`) - same agent,
-same tools, same dependency graph. The question: does OpenLIT fill the gap?
+The previous experiment (`openllmetry_openai_agents`) set up the question this one answers.
 
-**Answer: yes, and more.** OpenLIT records all operation types (workflow, agent,
-tool, chat) plus additional metrics that neither the manual experiment nor
-OpenLLMetry provide: time-to-first-token and cost in USD.
+- **What OpenLLMetry gave us:**
+  - Model call and token metrics.
+- **What OpenLLMetry missed:**
+  - Workflow duration metrics.
+  - Tool duration metrics.
+- **What this experiment changes:**
+  - Swaps OpenLLMetry for **OpenLIT** (`openlit`).
+  - Everything else is held fixed: same agent, same tools, same dependency graph.
+- **The question:**
+  - Does OpenLIT fill the gap OpenLLMetry left?
+
+**Answer: yes, and more.**
+
+- OpenLIT records all operation types: workflow, agent, tool, and chat.
+- It also adds metrics that neither the manual experiment nor OpenLLMetry provide:
+  - Time-to-first-token.
+  - Cost in USD.
 
 ## What OpenLIT emits vs OpenLLMetry
 
@@ -74,6 +85,65 @@ OpenLLMetry provide: time-to-first-token and cost in USD.
 The agent code (`src/agent.py`) is identical between this experiment and
 experiment 6 - same `Runner.run()`, same 3 lines. The only difference is which
 instrumentation library wraps it.
+
+### The one metric OpenLIT drops: `generation.choices`
+
+OpenLLMetry's "Generation Choices by Finish Reason" panel (the `stop` vs `tool_call`
+lines) was built on `gen_ai.client.generation.choices`. OpenLIT does not emit that
+metric, so you cannot reproduce that exact panel here. The capability is not lost,
+it moves to a cleaner pair of panels.
+
+- **What OpenLLMetry did:**
+  - It had no per-request operation counts, only finish-reason counts.
+  - So it inferred tool work from the `tool_call` count and divided by the `stop` count (final answers).
+  - The denominator was a proxy (answer-completions), not real requests.
+- **What OpenLIT does instead:**
+  - Every operation duration carries a `_count`, so OpenLIT counts the operations directly: `chat` turns and `execute_tool` calls.
+  - It divides those by actual HTTP requests to `/ask`, so the denominator is real user requests, not a proxy.
+- **The equivalent panels on this dashboard:**
+  - **Tool Calls per Request** = `execute_tool` count / `/ask` request count. This is the direct equivalent of OpenLLMetry's "Tool Calls per Completed Request": how many tools each question invoked.
+  - **Model Turns per Request** = `chat` count / `/ask` request count. How many LLM round-trips each question took. OpenLLMetry could not produce this reliably, since it had no per-request chat count tied to requests.
+- **What you give up:**
+  - The raw `stop` vs `tool_call` line itself. There is no finish-reason breakdown, because the underlying metric is not emitted.
+  - In this setup that line was already of limited use: every question forces at least one tool call, so `tool_call` was always at or above `stop` and the ratio floored at ~1. The per-request ratios above carry the same "how much tool work per question" signal with a cleaner denominator.
+
+**The shape in the screenshot (shallow questions, then deep ones)**
+
+![Model Turns per Request and Tool Calls per Request](images/turns-and-tool-calls-per-request.png)
+
+- Early on you drove shallow questions (like `auth-ask`).
+  - Each question resolved in roughly one model turn, so **Model Turns per Request** sits flat at ~1.
+  - Those questions touched almost no tools, so **Tool Calls per Request** stays near ~0.2.
+- Then you switched to deep questions (like `checkout-ask`), which fan out across dependencies.
+  - Each question now takes several model round-trips, so **Model Turns per Request** climbs toward ~2.2.
+  - Each question invokes several tools, so **Tool Calls per Request** climbs toward ~3.4.
+- Both lines rising together is the signature of the workload shifting from shallow, near-direct questions to deep, tool-heavy ones.
+  - This is the same story OpenLLMetry's `stop` vs `tool_call` panel told, but read off real per-request ratios instead of a finish-reason proxy.
+
+## Instrumentation code: OpenLLMetry vs OpenLIT
+
+The agent code is identical; only `instrument.py` differs. Compare the two:
+
+- OpenLLMetry: [`experiments/openllmetry_openai_agents/src/instrument.py`](https://github.com/one2nc/ai_observability/blob/main/experiments/openllmetry_openai_agents/src/instrument.py)
+- OpenLIT: [`experiments/openlit_openai_agents/src/instrument.py`](https://github.com/one2nc/ai_observability/blob/main/experiments/openlit_openai_agents/src/instrument.py)
+
+**Clarity**
+
+- OpenLIT: one `openlit.init(...)` call auto-instruments the agent, chat, tools, and workflow.
+- OpenLLMetry: `Traceloop.init(...)` plus a manual `OpenAIAgentsInstrumentor(...).instrument()`, so instrumentation is split across two steps.
+
+**Extra work**
+
+- OpenLLMetry needs defensive plumbing that OpenLIT does not:
+  - Suppresses noisy `opentelemetry.attributes` warnings from the Agents SDK `Omit` sentinel.
+  - Blocks its own default Agents instrumentor, then re-adds one with `replace_existing_processors=True` to stop the SDK uploading traces to OpenAI.
+  - Hand-wires the whole logs pipeline (LoggerProvider, exporter, LoggingInstrumentor).
+- OpenLIT's only "extra" is declaring more metric views (ttft, cost, server duration). The views just pick histogram buckets; OpenLIT's library is what actually records those metrics.
+
+**Net**
+
+- OpenLIT: less code, richer metrics (ttft, USD cost, all operation types).
+- OpenLLMetry: more code, and still misses workflow/tool/ttft/cost.
 
 ## What stays the same
 
