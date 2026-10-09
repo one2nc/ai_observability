@@ -77,14 +77,14 @@ cat > data/config.json <<EOF
     "enabled": true,
     "type": "sqlite",
     "config": {
-      "path": "./config.db"
+      "path": "/app/data/config.db"
     }
   },
   "logs_store": {
     "enabled": true,
     "type": "sqlite",
     "config": {
-      "path": "./logs.db"
+      "path": "/app/data/logs.db"
     }
   }
 }

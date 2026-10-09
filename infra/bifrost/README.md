@@ -21,7 +21,28 @@ Then run `make up`.
 
 The provider config is generated into `infra/bifrost/data/config.json`. The API token is not written to that file; it is referenced as `env.BIFROST_API_KEY`.
 
-Bifrost runs with a local SQLite `config_store` because v1.5.7 requires a config store for governance routes during server bootstrap. The startup script treats `.enc` as the source of truth: when generated config changes, it backs up the old `data/config.db` and lets Bifrost bootstrap a fresh one.
+Bifrost runs with a local SQLite `config_store` because v1.5.7 requires a config
+store for governance routes during server bootstrap. The SQLite files live under
+`infra/bifrost/data/`, which is bind-mounted to `/app/data` in the container.
+That means virtual keys, gateway settings and logs survive normal infra
+restarts:
+
+```bash
+make down
+make up
+```
+
+Use `make clean` only when you intentionally want to remove Bifrost state.
+
+If you need to force Bifrost to bootstrap a fresh config store after changing
+provider structure, run:
+
+```bash
+BIFROST_RESET_CONFIG_STORE=true make up
+```
+
+That moves the existing `data/config.db` to a timestamped backup instead of
+silently deleting it.
 
 ## Virtual Key
 

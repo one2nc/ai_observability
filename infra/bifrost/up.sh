@@ -14,10 +14,10 @@ if [ -f data/config.hash ]; then
   PREVIOUS_CONFIG_HASH="$(cat data/config.hash)"
 fi
 
-if [ -f data/config.db ] && [ "$CONFIG_HASH" != "$PREVIOUS_CONFIG_HASH" ]; then
+if [ "${BIFROST_RESET_CONFIG_STORE:-false}" = "true" ] && [ -f data/config.db ]; then
   BACKUP_SUFFIX="$(date +%Y%m%d%H%M%S)"
   mv data/config.db "data/config.db.$BACKUP_SUFFIX.bak"
-  echo "Bifrost config changed; moved existing config store to data/config.db.$BACKUP_SUFFIX.bak"
+  echo "BIFROST_RESET_CONFIG_STORE=true; moved existing config store to data/config.db.$BACKUP_SUFFIX.bak"
 fi
 
 printf "%s\n" "$CONFIG_HASH" > data/config.hash

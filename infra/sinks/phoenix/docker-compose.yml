@@ -1,0 +1,23 @@
+services:
+  phoenix:
+    image: ${PHOENIX_IMAGE:-arizephoenix/phoenix:latest}
+    container_name: ai-obs-phoenix
+    restart: unless-stopped
+    ports:
+      - "${PHOENIX_PORT:-6006}:6006"
+      - "14317:4317"
+    environment:
+      PHOENIX_PORT: 6006
+      PHOENIX_GRPC_PORT: 4317
+      PHOENIX_WORKING_DIR: /mnt/data
+      PHOENIX_ENABLE_AUTH: "${PHOENIX_ENABLE_AUTH:-true}"
+      PHOENIX_SECRET: "${PHOENIX_SECRET:?PHOENIX_SECRET is required when running Phoenix auth}"
+      PHOENIX_ADMIN_SECRET: "${PHOENIX_ADMIN_SECRET:?PHOENIX_ADMIN_SECRET is required so the gateway can send traces to auth-enabled Phoenix}"
+      PHOENIX_DEFAULT_ADMIN_INITIAL_PASSWORD: "${PHOENIX_DEFAULT_ADMIN_INITIAL_PASSWORD:?PHOENIX_DEFAULT_ADMIN_INITIAL_PASSWORD is required for local admin login}"
+      PHOENIX_ENABLE_PROMETHEUS: "true"
+    volumes:
+      - phoenix-data:/mnt/data
+
+volumes:
+  phoenix-data:
+    name: phoenix_phoenix-data
