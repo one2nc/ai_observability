@@ -1,5 +1,51 @@
 # OpenLLMetry + OpenAI Agents: metrics gap
 
+## Prerequisites
+
+- **Docker and Docker Compose.** The agent runs in a container; `make build` then `make up`.
+- **Shared infra up first:** `cd ../../infra && make up`.
+  - Brings up the OTel collector gateway (OTLP on `host.docker.internal:4418`) and the selected sink.
+  - For `make dashboard`, use a metrics-capable sink: `SINK=grafana`.
+  - No pgvector needed — this is the OpenAI Agents SDK tool loop, not a RAG pipeline.
+- **`.env`** copied from `.env.example`, no hidden defaults:
+  - `OPENAI_API_KEY` — a real provider key; the agent calls the model live. e.g. `OPENAI_API_KEY=your-openai-api-key`
+  - `OPENAI_MODEL` — model the agent drives. e.g. `OPENAI_MODEL=gpt-4o-mini`
+  - `OPENAI_AGENTS_API` — Agents SDK transport. e.g. `OPENAI_AGENTS_API=chat_completions`
+  - `OPENAI_BASE_URL` — gateway base URL; set it (plus a Bifrost virtual key as `OPENAI_API_KEY`) to route through Bifrost. e.g. `OPENAI_BASE_URL=http://host.docker.internal:8800/v1`
+  - `OTEL_SERVICE_NAME` — service name on emitted telemetry. e.g. `OTEL_SERVICE_NAME=ai-obs-openllmetry-openai-agents`
+  - `OTEL_EXPORTER_OTLP_ENDPOINT` — OTLP target; the agent sends to the gateway, never a sink directly. e.g. `OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4418`
+- **`python3` on the host** for the `make *-ask` / `make metrics` / `make dashboard` targets.
+- Expect gaps: OpenLLMetry traces the model calls but misses the workflow and tool metrics — the empty panels are the point of this experiment.
+
+## Usage
+
+```bash
+cd ../../infra
+make up
+
+cd ../experiments/openllmetry_openai_agents
+cp .env.example .env
+# Set OPENAI_API_KEY
+
+make up
+```
+
+From another terminal:
+
+```bash
+make auth-ask           # 2 turns - no dependencies
+make payments-ask       # 3 turns - checks ledger
+make catalog-ask        # 3 turns - checks search-index, inventory
+make checkout-ask       # 4 turns - hits max_turns=3, gets cut off
+make random-ask         # random service each time
+make metrics
+make dashboard
+```
+
+Compare the dashboard with experiment 5: Model Call Duration and Token Usage
+panels populate. Agent Workflow Duration and Tool Execution Duration panels
+are empty. HTTP panels populate as control signal.
+
 ## Context: from manual loop to Agents SDK
 
 The previous experiment (`openai_agents_manual`) runs the same incident-triage
@@ -190,52 +236,6 @@ this from metrics alone. Here, it's a blind spot.
 | 8 | Per-tool SLO (e.g. tool X > 2s) | No (metrics) | Inspect tool spans in traces | Trace explorer | `execute_tool` span duration |
 | 9 | Workflow SLO (e.g. agent > 10s) | No (GenAI metrics) | Only via HTTP p95 (includes framework overhead) | Request Duration panel | `http_server_duration_milliseconds_bucket` |
 | 10 | Metrics gap vs pipeline failure | Yes | HTTP panels populated, GenAI workflow/tool empty | Dashboard | Compare HTTP section with GenAI MISSING panels |
-
-## Prerequisites
-
-- **Docker and Docker Compose.** The agent runs in a container; `make build` then `make up`.
-- **Shared infra up first:** `cd ../../infra && make up`.
-  - Brings up the OTel collector gateway (OTLP on `host.docker.internal:4418`) and the selected sink.
-  - For `make dashboard`, use a metrics-capable sink: `SINK=grafana`.
-  - No pgvector needed — this is the OpenAI Agents SDK tool loop, not a RAG pipeline.
-- **`.env`** copied from `.env.example`, no hidden defaults:
-  - `OPENAI_API_KEY` — a real provider key; the agent calls the model live. e.g. `OPENAI_API_KEY=your-openai-api-key`
-  - `OPENAI_MODEL` — model the agent drives. e.g. `OPENAI_MODEL=gpt-4o-mini`
-  - `OPENAI_AGENTS_API` — Agents SDK transport. e.g. `OPENAI_AGENTS_API=chat_completions`
-  - `OPENAI_BASE_URL` — gateway base URL; set it (plus a Bifrost virtual key as `OPENAI_API_KEY`) to route through Bifrost. e.g. `OPENAI_BASE_URL=http://host.docker.internal:8800/v1`
-  - `OTEL_SERVICE_NAME` — service name on emitted telemetry. e.g. `OTEL_SERVICE_NAME=ai-obs-openllmetry-openai-agents`
-  - `OTEL_EXPORTER_OTLP_ENDPOINT` — OTLP target; the agent sends to the gateway, never a sink directly. e.g. `OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4418`
-- **`python3` on the host** for the `make *-ask` / `make metrics` / `make dashboard` targets.
-- Expect gaps: OpenLLMetry traces the model calls but misses the workflow and tool metrics — the empty panels are the point of this experiment.
-
-## Usage
-
-```bash
-cd ../../infra
-make up
-
-cd ../experiments/openllmetry_openai_agents
-cp .env.example .env
-# Set OPENAI_API_KEY
-
-make up
-```
-
-From another terminal:
-
-```bash
-make auth-ask           # 2 turns - no dependencies
-make payments-ask       # 3 turns - checks ledger
-make catalog-ask        # 3 turns - checks search-index, inventory
-make checkout-ask       # 4 turns - hits max_turns=3, gets cut off
-make random-ask         # random service each time
-make metrics
-make dashboard
-```
-
-Compare the dashboard with experiment 5: Model Call Duration and Token Usage
-panels populate. Agent Workflow Duration and Tool Execution Duration panels
-are empty. HTTP panels populate as control signal.
 
 ## Appendix: Metric dimensions
 

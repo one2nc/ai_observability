@@ -2,6 +2,45 @@
 
 Instruments the RAG app with plain OpenTelemetry — manual spans, metrics, and logs. No LLM-specific auto-instrumentation.
 
+## Prerequisites
+
+- **Docker and Docker Compose.** The app runs in a container; `make build` then `make up`.
+- **Shared infra up first:** `cd ../../infra && make up`.
+  - Brings up pgvector, the OTel collector gateway (OTLP on `host.docker.internal:4418`), and the selected sink.
+  - For `make dashboard` to land, use a metrics-capable sink: `SINK=grafana`.
+- **`.env`** copied from `.env.example`, no hidden defaults:
+  - `EMBED_API_KEY` — API key for the embedding endpoint. e.g. `EMBED_API_KEY=your-embed-api-key`
+  - `EMBED_BASE_URL` — base URL of the embedding provider. e.g. `EMBED_BASE_URL=https://openrouter.ai/api/v1`
+  - `EMBED_MODEL` — embedding model name. e.g. `EMBED_MODEL=openai/text-embedding-3-small`
+  - `EMBED_DIM` — embedding vector dimension. e.g. `EMBED_DIM=1536`
+  - `CHAT_API_KEY` — API key for the chat endpoint (OpenRouter, direct). e.g. `CHAT_API_KEY=your-openrouter-api-key`
+  - `CHAT_BASE_URL` — base URL of the chat provider (OpenRouter, direct, no gateway yet). e.g. `CHAT_BASE_URL=https://openrouter.ai/api/v1`
+  - `CHAT_MODEL` — chat model name. e.g. `CHAT_MODEL=openai/gpt-4o-mini`
+  - `DATABASE_URL` — pgvector Postgres connection string. e.g. `DATABASE_URL=postgresql://rag:rag@host.docker.internal:5432/rag`
+  - `OTEL_SERVICE_NAME` — service name on emitted telemetry. e.g. `OTEL_SERVICE_NAME=ai-obs-otel`
+  - `OTEL_EXPORTER_OTLP_ENDPOINT` — OTLP target; the app sends to the gateway, never a sink directly. e.g. `OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4418`
+- **`python3` on the host** for the `make ingest` / `make ask` / `make dashboard` targets.
+
+## Usage
+
+```bash
+# 1. Start shared infra
+cd ../../infra && make up
+
+# 2. Configure
+cp .env.example .env
+# Edit .env with your keys
+
+# 3. Run
+make up
+
+# 4. Test (from another terminal)
+make ingest
+make ask
+
+# 5. View traces in your configured sink
+```
+
 ## Flow
 
 ```mermaid
@@ -91,45 +130,6 @@ POST /ingest (3.38s)
 ## Failure modes
 
 See [failure_modes.md](failure_modes.md).
-
-## Prerequisites
-
-- **Docker and Docker Compose.** The app runs in a container; `make build` then `make up`.
-- **Shared infra up first:** `cd ../../infra && make up`.
-  - Brings up pgvector, the OTel collector gateway (OTLP on `host.docker.internal:4418`), and the selected sink.
-  - For `make dashboard` to land, use a metrics-capable sink: `SINK=grafana`.
-- **`.env`** copied from `.env.example`, no hidden defaults:
-  - `EMBED_API_KEY` — API key for the embedding endpoint. e.g. `EMBED_API_KEY=your-embed-api-key`
-  - `EMBED_BASE_URL` — base URL of the embedding provider. e.g. `EMBED_BASE_URL=https://openrouter.ai/api/v1`
-  - `EMBED_MODEL` — embedding model name. e.g. `EMBED_MODEL=openai/text-embedding-3-small`
-  - `EMBED_DIM` — embedding vector dimension. e.g. `EMBED_DIM=1536`
-  - `CHAT_API_KEY` — API key for the chat endpoint. e.g. `CHAT_API_KEY=your-chat-api-key`
-  - `CHAT_BASE_URL` — base URL of the chat gateway. e.g. `CHAT_BASE_URL=http://host.docker.internal:8000/v1`
-  - `CHAT_MODEL` — chat model name. e.g. `CHAT_MODEL=claude-sonnet-4`
-  - `DATABASE_URL` — pgvector Postgres connection string. e.g. `DATABASE_URL=postgresql://rag:rag@host.docker.internal:5432/rag`
-  - `OTEL_SERVICE_NAME` — service name on emitted telemetry. e.g. `OTEL_SERVICE_NAME=ai-obs-otel`
-  - `OTEL_EXPORTER_OTLP_ENDPOINT` — OTLP target; the app sends to the gateway, never a sink directly. e.g. `OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4418`
-- **`python3` on the host** for the `make ingest` / `make ask` / `make dashboard` targets.
-
-## Usage
-
-```bash
-# 1. Start shared infra
-cd ../../infra && make up
-
-# 2. Configure
-cp .env.example .env
-# Edit .env with your keys
-
-# 3. Run
-make up
-
-# 4. Test (from another terminal)
-make ingest
-make ask
-
-# 5. View traces in your configured sink
-```
 
 ## Appendix: Metric Dimensions
 

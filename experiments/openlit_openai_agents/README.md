@@ -1,5 +1,50 @@
 # OpenLIT + OpenAI Agents: full metrics restored
 
+## Prerequisites
+
+- **Docker and Docker Compose.** The agent runs in a container; `make build` then `make up`.
+- **Shared infra up first:** `cd ../../infra && make up`.
+  - Brings up the OTel collector gateway (OTLP on `host.docker.internal:4418`) and the selected sink.
+  - For `make dashboard` and the full workflow/tool/model/token panels, use a metrics-capable sink: `SINK=grafana`.
+  - No pgvector needed — this is the OpenAI Agents SDK tool loop, not a RAG pipeline.
+- **`.env`** copied from `.env.example`, no hidden defaults:
+  - `OPENAI_API_KEY` — a real provider key; the agent calls the model live. e.g. `OPENAI_API_KEY=your-openai-api-key`
+  - `OPENAI_MODEL` — model the agent drives. e.g. `OPENAI_MODEL=gpt-4o-mini`
+  - `OPENAI_AGENTS_API` — Agents SDK transport. e.g. `OPENAI_AGENTS_API=chat_completions`
+  - `OPENAI_BASE_URL` — gateway base URL; set it (plus a Bifrost virtual key as `OPENAI_API_KEY`) to route through Bifrost. e.g. `OPENAI_BASE_URL=http://host.docker.internal:8800/v1`
+  - `OTEL_SERVICE_NAME` — service name on emitted telemetry. e.g. `OTEL_SERVICE_NAME=ai-obs-openlit-openai-agents`
+  - `OTEL_EXPORTER_OTLP_ENDPOINT` — OTLP target; the agent sends to the gateway, never a sink directly. e.g. `OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4418`
+- **`python3` on the host** for the `make *-ask` / `make metrics` / `make dashboard` targets.
+- OpenLIT auto-instruments the Agents SDK, so all GenAI panels populate with no manual instrumentation.
+
+## Usage
+
+```bash
+cd ../../infra
+make up
+
+cd ../experiments/openlit_openai_agents
+cp .env.example .env
+# Set OPENAI_API_KEY
+
+make up
+```
+
+From another terminal:
+
+```bash
+make auth-ask           # 2 turns - no dependencies
+make payments-ask       # 3 turns - checks ledger
+make catalog-ask        # 3 turns - checks search-index, inventory
+make checkout-ask       # 4 turns - hits max_turns=3, gets cut off
+make random-ask         # random service each time
+make metrics
+make dashboard
+```
+
+All GenAI panels populate. Compare with experiment 6 where workflow and tool
+panels were empty.
+
 ## Context: from OpenLLMetry to OpenLIT
 
 The previous experiment (`openllmetry_openai_agents`) showed that OpenLLMetry
@@ -104,51 +149,6 @@ make dashboard
 
 Every failure mode from experiment 5 (manual) is detectable here from metrics.
 No need to open traces for latency or cost debugging.
-
-## Prerequisites
-
-- **Docker and Docker Compose.** The agent runs in a container; `make build` then `make up`.
-- **Shared infra up first:** `cd ../../infra && make up`.
-  - Brings up the OTel collector gateway (OTLP on `host.docker.internal:4418`) and the selected sink.
-  - For `make dashboard` and the full workflow/tool/model/token panels, use a metrics-capable sink: `SINK=grafana`.
-  - No pgvector needed — this is the OpenAI Agents SDK tool loop, not a RAG pipeline.
-- **`.env`** copied from `.env.example`, no hidden defaults:
-  - `OPENAI_API_KEY` — a real provider key; the agent calls the model live. e.g. `OPENAI_API_KEY=your-openai-api-key`
-  - `OPENAI_MODEL` — model the agent drives. e.g. `OPENAI_MODEL=gpt-4o-mini`
-  - `OPENAI_AGENTS_API` — Agents SDK transport. e.g. `OPENAI_AGENTS_API=chat_completions`
-  - `OPENAI_BASE_URL` — gateway base URL; set it (plus a Bifrost virtual key as `OPENAI_API_KEY`) to route through Bifrost. e.g. `OPENAI_BASE_URL=http://host.docker.internal:8800/v1`
-  - `OTEL_SERVICE_NAME` — service name on emitted telemetry. e.g. `OTEL_SERVICE_NAME=ai-obs-openlit-openai-agents`
-  - `OTEL_EXPORTER_OTLP_ENDPOINT` — OTLP target; the agent sends to the gateway, never a sink directly. e.g. `OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4418`
-- **`python3` on the host** for the `make *-ask` / `make metrics` / `make dashboard` targets.
-- OpenLIT auto-instruments the Agents SDK, so all GenAI panels populate with no manual instrumentation.
-
-## Usage
-
-```bash
-cd ../../infra
-make up
-
-cd ../experiments/openlit_openai_agents
-cp .env.example .env
-# Set OPENAI_API_KEY
-
-make up
-```
-
-From another terminal:
-
-```bash
-make auth-ask           # 2 turns - no dependencies
-make payments-ask       # 3 turns - checks ledger
-make catalog-ask        # 3 turns - checks search-index, inventory
-make checkout-ask       # 4 turns - hits max_turns=3, gets cut off
-make random-ask         # random service each time
-make metrics
-make dashboard
-```
-
-All GenAI panels populate. Compare with experiment 6 where workflow and tool
-panels were empty.
 
 ## Appendix: Metric dimensions
 
