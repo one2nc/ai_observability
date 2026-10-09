@@ -201,6 +201,26 @@ The output token drop is the clearest signal that the LLM is failing to produce 
 
 See [failure_modes.md](failure_modes.md).
 
+## Prerequisites
+
+- **Docker and Docker Compose.** The app runs in a container; `make build` then `make up`.
+- **Shared infra up first:** `cd ../../infra && make up`.
+  - Brings up pgvector, the OTel collector gateway (OTLP on `host.docker.internal:4418`), and the selected sink.
+  - For `make dashboard` and the retrieval-quality panels, use a metrics-capable sink: `SINK=grafana`.
+- **`.env`** copied from `.env.example`, no hidden defaults:
+  - `EMBED_API_KEY` — API key for the embedding endpoint. e.g. `EMBED_API_KEY=your-embed-api-key`
+  - `EMBED_BASE_URL` — base URL of the embedding provider. e.g. `EMBED_BASE_URL=https://openrouter.ai/api/v1`
+  - `EMBED_MODEL` — embedding model name. e.g. `EMBED_MODEL=openai/text-embedding-3-small`
+  - `EMBED_DIM` — embedding vector dimension. e.g. `EMBED_DIM=1536`
+  - `CHAT_API_KEY` — API key for the chat endpoint. e.g. `CHAT_API_KEY=your-chat-api-key`
+  - `CHAT_BASE_URL` — base URL of the chat gateway. e.g. `CHAT_BASE_URL=http://host.docker.internal:8000/v1`
+  - `CHAT_MODEL` — chat model name. e.g. `CHAT_MODEL=qwen3-coder-next`
+  - `DATABASE_URL` — pgvector Postgres connection string. e.g. `DATABASE_URL=postgresql://rag:rag@host.docker.internal:5432/rag`
+  - `OTEL_SERVICE_NAME` — service name on emitted telemetry. e.g. `OTEL_SERVICE_NAME=ai-obs-openllmetry-manual`
+  - `OTEL_EXPORTER_OTLP_ENDPOINT` — OTLP target; the app sends to the gateway, never a sink directly. e.g. `OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4418`
+- **`python3` on the host** for the `make ingest` / `make ask` / `make dashboard` targets.
+- `make ask` sends a `user_id`, so the per-user attribution attributes need no extra setup.
+
 ## Usage
 
 ```bash
@@ -218,7 +238,7 @@ make up
 make ingest
 make ask
 
-# 5. View traces in your configured sink (e.g. http://localhost:3301 for SigNoz)
+# 5. View traces in your configured sink
 # Look for rag.* spans with similarity attributes
 ```
 

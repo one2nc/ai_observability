@@ -237,6 +237,29 @@ A Grafana dashboard is included in `dashboard.grafana.json`. It covers four metr
 
 See [failure_modes.md](failure_modes.md).
 
+## Prerequisites
+
+- **Docker and Docker Compose.** The app runs in a container; `make build` then `make up`.
+- **Shared infra up with the Bifrost gateway:** `cd ../../infra && make up AI_GATEWAY=bifrost`.
+  - Brings up pgvector, the OTel collector gateway (OTLP on `host.docker.internal:4418`), the Bifrost gateway, and the selected sink.
+  - For the gateway/cost/retrieval panels, use a metrics-capable sink: `SINK=grafana`.
+- **A Bifrost virtual key.** Create it in the Bifrost UI at http://localhost:8800 → Virtual Keys → Create.
+  - Allow the models you use (e.g. `openrouter/text-embedding-3-small`, `openrouter/gpt-4o-mini`, or `*`).
+  - The key lives in the gateway's SQLite DB; it is lost on `make clean` / container recreate and must be regenerated (see the note below).
+- **`.env`** copied from `.env.example`, no hidden defaults:
+  - `EMBED_API_KEY` — the Bifrost virtual key, for embeddings. e.g. `EMBED_API_KEY=your-bifrost-virtual-key`
+  - `EMBED_BASE_URL` — Bifrost gateway URL for embeddings. e.g. `EMBED_BASE_URL=http://host.docker.internal:8800/v1`
+  - `EMBED_MODEL` — embedding model name. e.g. `EMBED_MODEL=openai/text-embedding-3-small`
+  - `EMBED_DIM` — embedding vector dimension. e.g. `EMBED_DIM=1536`
+  - `CHAT_API_KEY` — the Bifrost virtual key, for chat. e.g. `CHAT_API_KEY=your-bifrost-virtual-key`
+  - `CHAT_BASE_URL` — Bifrost gateway URL for chat. e.g. `CHAT_BASE_URL=http://host.docker.internal:8800/v1`
+  - `CHAT_MODEL` — chat model name. e.g. `CHAT_MODEL=openrouter/gpt-4o-mini`
+  - `DATABASE_URL` — pgvector Postgres connection string. e.g. `DATABASE_URL=postgresql://rag:rag@host.docker.internal:5432/rag`
+  - `OTEL_SERVICE_NAME` — service name on emitted telemetry. e.g. `OTEL_SERVICE_NAME=ai-obs-bifrost`
+  - `OTEL_EXPORTER_OTLP_ENDPOINT` — OTLP target; the app sends to the gateway, never a sink directly. e.g. `OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4418`
+- **`python3` on the host** for the `make ingest` / `make ask` / `make random-*` / `make dashboard` targets.
+- For varied traffic: `cp experiment_data/sample_chat_models.yaml.example experiment_data/sample_chat_models.yaml` and uncomment the models to use.
+
 ## Usage
 
 > **Note:** The Bifrost virtual key is stored in the gateway's SQLite DB (`infra/bifrost/data/config.db`).

@@ -1,38 +1,37 @@
 # AI Observability
 
-Exploring AI observability across RAG pipelines and agentic workflows. Each experiment instruments the same application differently - compare what each approach captures, what it misses, and what failure modes it can detect.
+Exploring AI observability across RAG pipelines and agentic workflows. The experiments split into two groups:
+
+- A RAG app, instrumented multiple ways (`otel`, `openllmetry`, `openllmetry_manual`, `bifrost`).
+- An agent, instrumented multiple ways (`openai_agents_manual`, `openllmetry_openai_agents`, `openlit_openai_agents`, `langfuse_openai_agents`).
+
+Within each group the application is held fixed and the instrumentation changes, so you can compare what each approach captures, what it misses, and what failure modes it can detect.
 
 ## Architecture
 
 ```mermaid
-graph LR
-    User --> experiments
+graph TD
+    User[User]
 
-    subgraph experiments["experiments/"]
-        direction TB
-        otel --- openllmetry --- openllmetry_manual --- bifrost --- openai_agents_manual --- openllmetry_openai_agents --- openlit_openai_agents --- langfuse_introduction --- langfuse_openai_agents --- more_exp[...]
+    subgraph apps["Experiments"]
+        rag["RAG app<br/>otel · openllmetry · openllmetry_manual · bifrost"]
+        agent["Agent<br/>openai_agents_manual · openllmetry_openai_agents<br/>openlit_openai_agents · langfuse_openai_agents"]
     end
 
-    subgraph gateways["AI Gateways"]
-        direction TB
-        none_gw[none] --- bifrost_gw[bifrost] --- more_gw[...]
-    end
+    gw["AI Gateway (optional)<br/>none · bifrost"]
+    collector["OTel Collector Gateway"]
 
     subgraph sinks["Sinks"]
-        direction TB
-        subgraph grafana_stack["Grafana stack"]
-            grafana[Grafana] --- prometheus[Prometheus] --- loki[Loki] --- tempo[Tempo]
-        end
-        grafana_stack --- signoz[SigNoz] --- langfuse_sink[Langfuse] --- more_sink[...]
+        grafana["Grafana stack<br/>Grafana · Prometheus · Loki · Tempo"]
+        langfuse["Langfuse"]
     end
 
-    experiments --> gateways
-    experiments -->|OTLP| collector[OTel Collector Gateway]
-    gateways -->|OTLP| collector
-    collector --> sinks
-    experiments -.->|Langfuse SDK| langfuse_sink
-
-    linkStyle 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17 stroke:none
+    User --> apps
+    apps -->|LLM traffic| gw
+    apps -->|OTLP| collector
+    gw -->|OTLP| collector
+    collector --> grafana
+    apps -.->|Langfuse SDK| langfuse
 ```
 
 Each box is an independent silo. You can add a new instrumentation library, a new gateway, or a new sink without touching the others.

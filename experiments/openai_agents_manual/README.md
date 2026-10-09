@@ -237,6 +237,21 @@ explained by variable model response times across requests.
 | 9 | Model quality degradation | Bad answers despite correct tools | - | - | Needs eval layer |
 | 10 | Tool returns wrong data | Synthetic tools always "work" | - | - | Needs integration testing |
 
+## Prerequisites
+
+- **Docker and Docker Compose.** The agent runs in a container; `make build` then `make up`.
+- **Shared infra up first:** `cd ../../infra && make up`.
+  - Brings up the OTel collector gateway (OTLP on `host.docker.internal:4418`) and the selected sink.
+  - For `make dashboard` and the workflow/tool/token panels, use a metrics-capable sink: `SINK=grafana`.
+  - No pgvector needed — this is an agent tool loop, not a RAG pipeline, so there is no embedding or vector store.
+- **`.env`** copied from `.env.example`, no hidden defaults:
+  - `OPENAI_API_KEY` — a real provider key; the tool loop calls the model live. e.g. `OPENAI_API_KEY=your-openai-api-key`
+  - `OPENAI_MODEL` — model the agent drives. e.g. `OPENAI_MODEL=openrouter/gpt-4o-mini`
+  - `OPENAI_BASE_URL` — gateway base URL; set it (plus a Bifrost virtual key as `OPENAI_API_KEY`) to route through Bifrost. e.g. `OPENAI_BASE_URL=http://host.docker.internal:8800/v1`
+  - `OTEL_SERVICE_NAME` — service name on emitted telemetry. e.g. `OTEL_SERVICE_NAME=ai-obs-openai-agents-manual`
+  - `OTEL_EXPORTER_OTLP_ENDPOINT` — OTLP target; the agent sends to the gateway, never a sink directly. e.g. `OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4418`
+- **`python3` on the host** for the `make *-ask` / `make metrics` / `make dashboard` targets.
+
 ## Usage
 
 ```bash
