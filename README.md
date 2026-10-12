@@ -10,23 +10,25 @@ Within each group the application is held fixed and the instrumentation changes,
 ## Architecture
 
 ```mermaid
+%%{init: {"flowchart": {"htmlLabels": true, "nodeSpacing": 80, "rankSpacing": 60}, "themeVariables": {"fontSize": "11px"}}}%%
 graph TD
     User[User]
 
     subgraph apps["Experiments"]
-        rag["RAG app<br/>otel · openllmetry · openllmetry_manual · bifrost"]
-        agent["Agent<br/>openai_agents_manual · openllmetry_openai_agents<br/>openlit_openai_agents · langfuse_openai_agents"]
+        rag["RAG app<br/>otel<br/>openllmetry<br/>openllmetry_manual<br/>bifrost"]
+        agent["Agent<br/>openai_manual<br/>openllmetry_openai<br/>openlit_openai<br/>langfuse_openai"]
     end
 
-    gw["AI Gateway (optional)<br/>none · bifrost"]
+    gw["AI Gateway<br/>none · bifrost"]
     collector["OTel Collector Gateway"]
 
     subgraph sinks["Sinks"]
-        grafana["Grafana stack<br/>Grafana · Prometheus · Loki · Tempo"]
+        grafana["Grafana stack<br/>Grafana<br/>Prometheus<br/>Loki<br/>Tempo"]
         langfuse["Langfuse"]
     end
 
     User --> apps
+    rag ~~~ agent
     apps -->|LLM traffic| gw
     apps -->|OTLP| collector
     gw -->|OTLP| collector
