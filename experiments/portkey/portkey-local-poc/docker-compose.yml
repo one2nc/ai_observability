@@ -1,0 +1,58 @@
+version: "3.8"
+services:
+  portkey:
+    image: portkeyai/gateway:latest
+    container_name: portkey-gateway
+    ports:
+      - "8787:8787"
+    environment:
+      - PORTKEY_CLIENT_AUTH=${PORTKEY_CLIENT_AUTH:-local-test-key}
+      - LOG_STORE=local
+      - LOG_STORE_BASE_PATH=/app/logs
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - portkey-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8787/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ── Prometheus (optional — uncomment to enable) ─────────────────────────────
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   container_name: portkey-prometheus
+  #   ports:
+  #     - "9090:9090"
+  #   volumes:
+  #     - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+  #   networks:
+  #     - portkey-net
+
+  # ── Grafana (optional — uncomment to enable) ────────────────────────────────
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   container_name: portkey-grafana
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - GF_SECURITY_ADMIN_USER=admin
+  #     - GF_SECURITY_ADMIN_PASSWORD=admin
+  #   volumes:
+  #     - grafana_data:/var/lib/grafana
+  #   depends_on:
+  #     - prometheus
+  #   networks:
+  #     - portkey-net
+
+# ── Shared network ──────────────────────────────────────────────────────────
+networks:
+  portkey-net:
+    driver: bridge
+
+# ── Named volumes ───────────────────────────────────────────────────────────
+# volumes:
+  # grafana_data:   # uncomment when Grafana is enabled
